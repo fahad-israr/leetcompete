@@ -339,12 +339,18 @@ export default function ProblemPicker({
       {/* Tab 2: Catalog Search */}
       {pickerTab === 'search' && (
         <div style={{ background: 'var(--bg-input)', padding: '16px', borderRadius: 'var(--radius-md)', marginBottom: '18px', border: '1px solid var(--border-color)' }}>
-          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
             <input
               type="text"
               placeholder="Search by name, ID (#322), or slug..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  loadSearch();
+                }
+              }}
               className="form-input"
             />
             <select
@@ -358,14 +364,24 @@ export default function ProblemPicker({
               <option value="Medium">Medium</option>
               <option value="Hard">Hard</option>
             </select>
-            <button type="submit" className="btn btn-secondary btn-sm">
+            <button
+              type="button"
+              onClick={handleSearchSubmit}
+              disabled={isSearching}
+              className="btn btn-secondary btn-sm"
+              title="Search catalog"
+            >
               <Search size={14} />
             </button>
-          </form>
+          </div>
 
           <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {isSearching ? (
-              <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-dim)' }}>Searching...</div>
+              <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-dim)' }}>Searching catalog...</div>
+            ) : searchResults.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+                No problems matched. Try a different keyword or difficulty filter.
+              </div>
             ) : searchResults.map((p) => {
               const isSelected = selectedProblems.some(sp => sp.titleSlug === p.titleSlug);
               return (
@@ -419,7 +435,7 @@ export default function ProblemPicker({
       {/* Tab 3: Paste URLs */}
       {pickerTab === 'url' && (
         <div style={{ background: 'var(--bg-input)', padding: '16px', borderRadius: 'var(--radius-md)', marginBottom: '18px', border: '1px solid var(--border-color)' }}>
-          <form onSubmit={handleImportUrl}>
+          <div>
             <label className="form-label">
               Paste LeetCode URLs or Problem Slugs (one per line or comma-separated)
             </label>
@@ -436,11 +452,16 @@ export default function ProblemPicker({
                 {importError}
               </div>
             )}
-            <button type="submit" disabled={isImporting || !urlInput.trim()} className="btn btn-primary btn-sm">
+            <button
+              type="button"
+              onClick={handleImportUrl}
+              disabled={isImporting || !urlInput.trim()}
+              className="btn btn-primary btn-sm"
+            >
               <LinkIcon size={14} />
               {isImporting ? 'Resolving...' : 'Import & Add'}
             </button>
-          </form>
+          </div>
         </div>
       )}
 
