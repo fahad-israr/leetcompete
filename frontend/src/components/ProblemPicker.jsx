@@ -1,6 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Search, Link as LinkIcon, Plus, Trash2, ArrowUp, ArrowDown, ShieldCheck, CheckCircle2, RotateCw, Eye, EyeOff } from 'lucide-react';
+import { Sparkles, Search, Link as LinkIcon, Plus, Trash2, ArrowUp, ArrowDown, ShieldCheck, CheckCircle2, RotateCw } from 'lucide-react';
 import { api } from '../services/api';
+
+// Custom Eye Icon (Matching Reference Image: almond shape with iris & pupil reflection)
+export function EyeIcon({ size = 16, color = "currentColor", ...props }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ display: 'inline-block', verticalAlign: 'middle' }}
+      {...props}
+    >
+      <path d="M1 12s4-7.5 11-7.5 11 7.5 11 7.5-4 7.5-11 7.5-11-7.5-11-7.5z" />
+      <circle cx="12" cy="12" r="3.6" fill={color} />
+      <circle cx="13.2" cy="10.8" r="1.1" fill="#fff" />
+    </svg>
+  );
+}
+
+// Custom Slashed Eye-Off Icon (Matching Reference Image: crossed out diagonal line)
+export function EyeOffIcon({ size = 16, color = "currentColor", ...props }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ display: 'inline-block', verticalAlign: 'middle' }}
+      {...props}
+    >
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+      <line x1="2" y1="2" x2="22" y2="22" strokeWidth="2.2" stroke={color} />
+    </svg>
+  );
+}
 
 export default function ProblemPicker({
   selectedProblems,
@@ -409,7 +452,7 @@ export default function ProblemPicker({
               Selected Questions ({selectedProblems.length})
             </h4>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-              (Anti-Spoiler Hidden)
+              (Anti-Spoiler)
             </span>
           </div>
 
@@ -419,10 +462,20 @@ export default function ProblemPicker({
                 type="button"
                 onClick={toggleAllReveal}
                 className="btn btn-secondary btn-sm"
-                style={{ padding: '3px 9px', fontSize: '0.75rem', minHeight: '26px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                style={{ padding: '4px 10px', fontSize: '0.775rem', minHeight: '28px', display: 'flex', alignItems: 'center', gap: '6px' }}
                 title={allRevealed ? "Hide all questions" : "Reveal all questions"}
               >
-                <span>{allRevealed ? '🙈 Hide' : '👁️ Reveal'}</span>
+                {allRevealed ? (
+                  <>
+                    <EyeOffIcon size={14} color="var(--text-muted)" />
+                    <span>Hide All</span>
+                  </>
+                ) : (
+                  <>
+                    <EyeIcon size={14} color="var(--accent-primary)" />
+                    <span>Reveal All</span>
+                  </>
+                )}
               </button>
             )}
 
@@ -431,7 +484,7 @@ export default function ProblemPicker({
                 type="button"
                 onClick={() => setSelectedProblems([])}
                 className="btn btn-danger btn-sm"
-                style={{ padding: '2px 8px', fontSize: '0.75rem', minHeight: '24px' }}
+                style={{ padding: '4px 10px', fontSize: '0.775rem', minHeight: '28px' }}
               >
                 Clear All
               </button>
@@ -467,7 +520,8 @@ export default function ProblemPicker({
                     background: 'var(--bg-card)',
                     border: '1px solid var(--border-color)',
                     borderRadius: 'var(--radius-md)',
-                    gap: '10px'
+                    gap: '10px',
+                    transition: 'border-color 0.2s ease'
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
@@ -527,25 +581,29 @@ export default function ProblemPicker({
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                    {/* Eye toggle button */}
+                    {/* Custom Vector Eye Toggle Button matching user reference */}
                     <button
                       type="button"
                       onClick={() => toggleReveal(prob.titleSlug)}
                       style={{
-                        background: isRevealed ? 'var(--bg-input)' : 'rgba(245, 158, 11, 0.1)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '4px',
-                        padding: '4px 6px',
-                        fontSize: '0.85rem',
+                        background: isRevealed ? 'var(--bg-input)' : 'rgba(245, 158, 11, 0.12)',
+                        border: `1px solid ${isRevealed ? 'var(--border-color)' : 'rgba(245, 158, 11, 0.35)'}`,
+                        borderRadius: '6px',
+                        padding: '6px 8px',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        lineHeight: 1
+                        lineHeight: 1,
+                        transition: 'all 0.2s ease'
                       }}
                       title={isRevealed ? "Hide question" : "Reveal question"}
                     >
-                      <span>{isRevealed ? '🙈' : '👁️'}</span>
+                      {isRevealed ? (
+                        <EyeOffIcon size={16} color="var(--text-muted)" />
+                      ) : (
+                        <EyeIcon size={16} color="var(--accent-primary)" />
+                      )}
                     </button>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
