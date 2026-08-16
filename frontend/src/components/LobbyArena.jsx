@@ -12,7 +12,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
   const [messages, setMessages] = useState([]);
   const [activeTab, setActiveTab] = useState('questions'); // 'questions' | 'ranking'
   
-  // Contest Alias & Private LeetCode handle state
+  // Contest Alias & Private LeetCode handle state (Max 25 chars for Display Name)
   const [displayName, setDisplayName] = useState('');
   const [displayNameInput, setDisplayNameInput] = useState('');
   const [username, setUsername] = useState('');
@@ -38,16 +38,18 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
   useEffect(() => {
     loadContest();
     
+    // Retrieve remembered browser alias & confidential LeetCode handle
     const savedAlias = localStorage.getItem('leetcompete_display_name') || currentUser?.displayName || '';
     const savedLC = localStorage.getItem('leetcompete_lc_handle') || localStorage.getItem('leetcompete_username') || '';
     
     if (savedAlias) {
-      setDisplayName(savedAlias);
-      setDisplayNameInput(savedAlias);
+      const trimmedAlias = savedAlias.slice(0, 25);
+      setDisplayName(trimmedAlias);
+      setDisplayNameInput(trimmedAlias);
     }
     if (savedLC) {
-      setUsername(savedLC.toLowerCase());
-      setUsernameInput(savedLC);
+      setUsername(savedLC.toLowerCase().trim());
+      setUsernameInput(savedLC.trim());
     }
 
     const savedPass = sessionStorage.getItem(`contest_pass_${contestCode}`);
@@ -56,7 +58,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
       setIsPasswordUnlocked(true);
     }
 
-    // If user already has alias & LC handle saved previously
+    // If user already has alias & LC handle saved in their browser
     if (savedAlias && savedLC) {
       setHasEnteredArena(true);
     }
@@ -125,7 +127,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     setEntryError('');
     setIsJoining(true);
 
-    const cleanAlias = displayNameInput.trim();
+    const cleanAlias = displayNameInput.trim().slice(0, 25);
     const cleanLC = usernameInput.trim().toLowerCase();
 
     try {
@@ -133,6 +135,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
         await api.joinContest(contest.id, cleanLC, cleanAlias, passwordInput.trim() || undefined);
       }
 
+      // Permanently remember username & handle in user's browser
       localStorage.setItem('leetcompete_display_name', cleanAlias);
       localStorage.setItem('leetcompete_lc_handle', cleanLC);
       localStorage.setItem('leetcompete_username', cleanLC);
@@ -272,23 +275,29 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
         </div>
 
         <form onSubmit={handleJoinArenaSubmit}>
-          {/* Field 1: Contest Alias / Display Name */}
+          {/* Field 1: Contest Alias / Display Name (Max 25 chars) */}
           <div className="form-group">
-            <label className="form-label" style={{ fontWeight: '700' }}>
-              <User size={13} style={{ display: 'inline', marginRight: '4px' }} />
-              Contest Display Name / Alias *
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <label className="form-label" style={{ fontWeight: '700', marginBottom: 0 }}>
+                <User size={13} style={{ display: 'inline', marginRight: '4px' }} />
+                Contest Display Name / Alias *
+              </label>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+                {displayNameInput.length}/25
+              </span>
+            </div>
             <input
               type="text"
+              maxLength={25}
               placeholder="e.g. SpeedyFox, Alex, Ninja99"
               value={displayNameInput}
-              onChange={(e) => setDisplayNameInput(e.target.value)}
+              onChange={(e) => setDisplayNameInput(e.target.value.slice(0, 25))}
               className="form-input"
               autoFocus
               required
             />
             <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '2px', display: 'block' }}>
-              This is the only name shown on live rankings and chat.
+              This is the only name shown on live rankings and chat (Max 25 chars).
             </span>
           </div>
 
@@ -300,7 +309,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
             </label>
             <input
               type="text"
-              placeholder="e.g. fahad00cms"
+              placeholder="e.g. alexzu2000"
               value={usernameInput}
               onChange={(e) => setUsernameInput(e.target.value)}
               className="form-input"
