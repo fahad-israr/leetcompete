@@ -13,7 +13,10 @@ provider:
     CONTESTS_TABLE: ${self:service}-contests-${self:provider.stage}
     SUBMISSIONS_TABLE: ${self:service}-submissions-${self:provider.stage}
     MESSAGES_TABLE: ${self:service}-messages-${self:provider.stage}
+    RATELIMITS_TABLE: ${self:service}-ratelimits-${self:provider.stage}
     JWT_SECRET: ${env:JWT_SECRET, 'leetcompete_jwt_secret_key_2026_super_secure'}
+    RESEND_API_KEY: ${ssm(us-east-1):/catty-portal/dev/resend-api-key, env:RESEND_API_KEY, 'mock_resend_key'}
+    SENDER_EMAIL: ${ssm(us-east-1):/catty-portal/dev/sender-email, env:SENDER_EMAIL, 'onboarding@resend.dev'}
     ADMIN_PASSCODE: ${env:ADMIN_PASSCODE, 'leetcompete_admin_2026'}
     ALLOWED_ADMIN_EMAILS: ${env:ALLOWED_ADMIN_EMAILS, 'fahad00cms@gmail.com'}
   iam:
@@ -33,7 +36,14 @@ provider:
             - !GetAtt ContestsTable.Arn
             - !GetAtt SubmissionsTable.Arn
             - !GetAtt MessagesTable.Arn
+            - !GetAtt RateLimitsTable.Arn
             - !Join ['', [!GetAtt ContestsTable.Arn, "/index/*"]]
+        - Effect: Allow
+          Action:
+            - ssm:GetParameter
+            - ssm:GetParameters
+          Resource:
+            - arn:aws:ssm:${aws:region}:${aws:accountId}:parameter/catty-portal/*
 
 package:
   excludeDevDependencies: false
@@ -70,6 +80,18 @@ resources:
             AttributeType: S
         KeySchema:
           - AttributeName: username
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+    RateLimitsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.RATELIMITS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
             KeyType: HASH
         BillingMode: PAY_PER_REQUEST
 

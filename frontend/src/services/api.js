@@ -1,5 +1,14 @@
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/$/, '');
 
+function getClientMachineId() {
+  let id = localStorage.getItem('leetcompete_client_id');
+  if (!id) {
+    id = `m_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem('leetcompete_client_id', id);
+  }
+  return id;
+}
+
 function getAuthHeaders() {
   const headers = { 'Content-Type': 'application/json' };
   
@@ -30,12 +39,13 @@ async function handleResponse(res) {
 }
 
 export const api = {
-  // === AUTHENTICATION ===
-  async register(username, password, displayName = '') {
+  // === AUTHENTICATION & EMAIL VERIFICATION ===
+  async register(username, email, password, displayName = '') {
+    const clientMachineId = getClientMachineId();
     const res = await fetch(`${API_BASE}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, displayName })
+      body: JSON.stringify({ username, email, password, displayName, clientMachineId })
     });
     const data = await handleResponse(res);
     if (data.token && data.user) {
@@ -44,6 +54,50 @@ export const api = {
       localStorage.setItem('leetcompete_username', data.user.username);
     }
     return data;
+  },
+
+  async verifyEmail(username, code) {
+    const res = await fetch(`${API_BASE}/api/auth/verify-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, code })
+    });
+    const data = await handleResponse(res);
+    if (data.token && data.user) {
+      localStorage.setItem('leetcompete_auth_token', data.token);
+      localStorage.setItem('leetcompete_user', JSON.stringify(data.user));
+      localStorage.setItem('leetcompete_username', data.user.username);
+    }
+    return data;
+  },
+
+  async resendCode(username) {
+    const clientMachineId = getClientMachineId();
+    const res = await fetch(`${API_BASE}/api/auth/resend-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, clientMachineId })
+    });
+    return await handleResponse(res);
+  },
+
+  async forgotPassword(usernameOrEmail) {
+    const clientMachineId = getClientMachineId();
+    const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usernameOrEmail, clientMachineId })
+    });
+    return await handleResponse(res);
+  },
+
+  async resetPassword(username, code, newPassword) {
+    const res = await fetch(`${API_BASE}/api/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, code, newPassword })
+    });
+    return await handleResponse(res);
   },
 
   async login(username, password) {

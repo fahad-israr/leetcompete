@@ -29,8 +29,11 @@ const SEASONS_TABLE = process.env.SEASONS_TABLE || 'leetcompete-seasons-dev';
 const CONTESTS_TABLE = process.env.CONTESTS_TABLE || 'leetcompete-contests-dev';
 const SUBMISSIONS_TABLE = process.env.SUBMISSIONS_TABLE || 'leetcompete-submissions-dev';
 const MESSAGES_TABLE = process.env.MESSAGES_TABLE || 'leetcompete-messages-dev';
+const RATELIMITS_TABLE = process.env.RATELIMITS_TABLE || 'leetcompete-ratelimits-dev';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'leetcompete_jwt_secret_key_2026_super_secure';
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const SENDER_EMAIL = process.env.SENDER_EMAIL || 'onboarding@resend.dev';
 
 // Standard response headers (Function URL handles CORS automatically)
 const standardHeaders = {
@@ -54,8 +57,152 @@ function generateCode(length = 5) {
   return result;
 }
 
+function generateNumericOTP(length = 6) {
+  let otp = '';
+  for (let i = 0; i < length; i++) {
+    otp += Math.floor(Math.random() * 10).toString();
+  }
+  return otp;
+}
+
 /**
- * Password Hashing & Verification using Node.js crypto
+ * 12-Hour Sliding Window Rate Limiting Engine
+ * Max 10 attempts per identifier in a 12-hour window (43200 seconds)
+ */
+async function checkRateLimit(identifierKey, maxAttempts = 10, windowHours = 12) {
+  const now = Math.floor(Date.now() / 1000);
+  const windowSeconds = windowHours * 3600;
+
+  try {
+    const res = await docClient.send(new GetCommand({
+      TableName: RATELIMITS_TABLE,
+      Key: { id: identifierKey }
+    }));
+
+    const item = res.Item;
+    if (!item || now > item.windowExpiresAt) {
+      // First attempt in a new window
+      const newRecord = {
+        id: identifierKey,
+        count: 1,
+        windowExpiresAt: now + windowSeconds,
+        updatedAt: now
+      };
+      await docClient.send(new PutCommand({
+        TableName: RATELIMITS_TABLE,
+        Item: newRecord
+      }));
+      return { allowed: true, remaining: maxAttempts - 1, resetInSeconds: windowSeconds };
+    }
+
+    if (item.count >= maxAttempts) {
+      const resetInSeconds = Math.max(0, item.windowExpiresAt - now);
+      const hoursRemaining = (resetInSeconds / 3600).toFixed(1);
+      return {
+        allowed: false,
+        remaining: 0,
+        resetInSeconds,
+        error: `Rate limit exceeded (Max ${maxAttempts} requests in ${windowHours} hours). Please try again in ${hoursRemaining} hours.`
+      };
+    }
+
+    // Increment attempt count
+    await docClient.send(new UpdateCommand({
+      TableName: RATELIMITS_TABLE,
+      Key: { id: identifierKey },
+      UpdateExpression: 'SET #c = #c + :one, updatedAt = :now',
+      ExpressionAttributeNames: { '#c': 'count' },
+      ExpressionAttributeValues: { ':one': 1, ':now': now }
+    }));
+
+    return { allowed: true, remaining: maxAttempts - (item.count + 1), resetInSeconds: item.windowExpiresAt - now };
+  } catch (e) {
+    console.warn('Rate limit check fallback:', e.message);
+    return { allowed: true, remaining: maxAttempts, resetInSeconds: windowSeconds };
+  }
+}
+
+/**
+ * Resend Email Dispatcher
+ */
+async function sendVerificationEmail(recipientEmail, code, username, type = 'verification') {
+  const isReset = type === 'reset';
+  const title = isReset ? 'Reset Your LeetCompete Password' : 'Verify Your LeetCompete Email';
+  const actionText = isReset ? 'use this code to reset your password' : 'use this code to activate your LeetCompete account';
+
+  if (!RESEND_API_KEY || RESEND_API_KEY.includes('mock')) {
+    console.log(`[MOCK RESEND EMAIL] To: ${recipientEmail} | Code: ${code} | Type: ${type}`);
+    return { success: true, mock: true };
+  }
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0b0d13; color: #f8fafc; margin: 0; padding: 20px; }
+          .container { max-width: 520px; margin: 0 auto; background-color: #131620; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 32px 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+          .header { text-align: center; margin-bottom: 24px; }
+          .logo { display: inline-block; background: linear-gradient(135deg, #f59e0b, #d97706); width: 44px; height: 44px; border-radius: 10px; line-height: 44px; font-size: 22px; margin-bottom: 12px; }
+          .title { font-size: 22px; font-weight: 800; color: #ffffff; margin: 0; }
+          .subtitle { font-size: 13px; color: #94a3b8; margin-top: 4px; }
+          .card { background-color: #1a1e2c; border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 24px; text-align: center; margin: 20px 0; }
+          .otp-code { font-family: 'JetBrains Mono', monospace, Courier; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #fbbf24; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); padding: 14px 20px; border-radius: 8px; display: inline-block; margin: 16px 0; }
+          .footer { font-size: 12px; color: #64748b; text-align: center; margin-top: 24px; line-height: 1.5; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="logo">🔥</div>
+            <h1 class="title">${title}</h1>
+            <div class="subtitle">Multiplayer LeetCode Arena & Zero-Repetition Bundles</div>
+          </div>
+          <div class="card">
+            <p style="font-size: 15px; color: #e2e8f0; margin: 0 0 10px;">Hello <strong>@${username}</strong>,</p>
+            <p style="font-size: 14px; color: #94a3b8; margin: 0 0 16px;">Please ${actionText}:</p>
+            <div class="otp-code">${code}</div>
+            <p style="font-size: 13px; color: #94a3b8; margin: 12px 0 0;">⏱️ This verification code is valid for <strong>15 minutes</strong>.</p>
+          </div>
+          <div class="footer">
+            If you did not request this verification code, no action is needed.<br>
+            Protected by 12-hour sliding window rate limiting.
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${RESEND_API_KEY}`
+      },
+      body: JSON.stringify({
+        from: SENDER_EMAIL || 'onboarding@resend.dev',
+        to: [recipientEmail],
+        subject: `[${code}] LeetCompete Verification Code`,
+        html
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      console.error('Resend API Error:', data);
+      return { success: false, error: data.message || 'Failed to send email via Resend' };
+    }
+    return { success: true, id: data.id };
+  } catch (err) {
+    console.error('Resend Dispatch Exception:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Password Hashing & Verification
  */
 function hashPassword(password, salt = null) {
   if (!salt) salt = crypto.randomBytes(16).toString('hex');
@@ -72,6 +219,8 @@ function generateUserToken(user) {
   const payload = {
     username: user.username.toLowerCase(),
     displayName: user.displayName || user.username,
+    email: user.email || null,
+    isVerified: !!user.isVerified,
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + (60 * 24 * 60 * 60) // 60 days
   };
@@ -109,6 +258,14 @@ function getAuthenticatedUser(event) {
     return { username: usernameHeader.trim().toLowerCase(), displayName: usernameHeader.trim() };
   }
   return null;
+}
+
+function getClientIdentifier(event, body) {
+  if (body?.clientMachineId && body.clientMachineId.trim()) {
+    return `machine_${body.clientMachineId.trim().slice(0, 64)}`;
+  }
+  const ip = event.requestContext?.http?.sourceIp || event.headers?.['x-forwarded-for'] || '127.0.0.1';
+  return `ip_${ip.split(',')[0].trim()}`;
 }
 
 async function resolveContest(codeOrId) {
@@ -167,9 +324,11 @@ exports.handler = async (event) => {
       });
     }
 
-    // === AUTHENTICATION ENDPOINTS ===
+    // === AUTHENTICATION & EMAIL VERIFICATION ENDPOINTS ===
+    
+    // 1. Register with Email Verification & Rate Limiting
     if (path === '/api/auth/register' && httpMethod === 'POST') {
-      const { username, password, displayName } = body;
+      const { username, email, password, displayName, clientMachineId } = body;
       if (!username || !username.trim() || username.trim().length < 2) {
         return jsonResponse(400, { success: false, error: 'Username must be at least 2 characters.' });
       }
@@ -178,23 +337,47 @@ exports.handler = async (event) => {
       }
 
       const cleanUsername = username.trim().toLowerCase();
+      const cleanEmail = email ? email.trim().toLowerCase() : null;
+
       // Check if user already exists
       const existing = await docClient.send(new GetCommand({
         TableName: USERS_TABLE,
         Key: { username: cleanUsername }
       }));
 
-      if (existing.Item) {
+      if (existing.Item && existing.Item.isVerified) {
         return jsonResponse(400, { success: false, error: `Username "${cleanUsername}" is already taken.` });
       }
 
+      const clientKey = getClientIdentifier(event, body);
+      const now = Math.floor(Date.now() / 1000);
+
+      // Check Rate Limits: Email (10 per 12h) and Client Machine ID (10 per 12h)
+      if (cleanEmail) {
+        const emailRate = await checkRateLimit(`rate#email#${cleanEmail}`, 10, 12);
+        if (!emailRate.allowed) {
+          return jsonResponse(429, { success: false, error: emailRate.error });
+        }
+      }
+
+      const clientRate = await checkRateLimit(`rate#client#${clientKey}`, 10, 12);
+      if (!clientRate.allowed) {
+        return jsonResponse(429, { success: false, error: clientRate.error });
+      }
+
       const { hash, salt } = hashPassword(password);
+      const otpCode = generateNumericOTP(6);
+
       const newUser = {
         username: cleanUsername,
+        email: cleanEmail,
         displayName: (displayName || username).trim(),
         passwordHash: hash,
         salt,
-        createdAt: Math.floor(Date.now() / 1000)
+        isVerified: !cleanEmail, // Auto-verified if no email provided, else requires verification
+        verificationCode: cleanEmail ? otpCode : null,
+        verificationCodeExpiresAt: cleanEmail ? now + (15 * 60) : null,
+        createdAt: now
       };
 
       await docClient.send(new PutCommand({
@@ -202,14 +385,131 @@ exports.handler = async (event) => {
         Item: newUser
       }));
 
+      // Send Verification Email via Resend if email provided
+      if (cleanEmail) {
+        await sendVerificationEmail(cleanEmail, otpCode, newUser.username, 'verification');
+        return jsonResponse(200, {
+          success: true,
+          requiresVerification: true,
+          email: cleanEmail,
+          message: `Verification code sent to ${cleanEmail}.`
+        });
+      }
+
+      // If no email, issue token immediately
       const token = generateUserToken(newUser);
       return jsonResponse(200, {
         success: true,
+        requiresVerification: false,
         token,
-        user: { username: newUser.username, displayName: newUser.displayName }
+        user: { username: newUser.username, displayName: newUser.displayName, isVerified: true }
       });
     }
 
+    // 2. Verify Email OTP Code
+    if (path === '/api/auth/verify-email' && httpMethod === 'POST') {
+      const { username, code } = body;
+      if (!username || !code) {
+        return jsonResponse(400, { success: false, error: 'Username and 6-digit verification code are required.' });
+      }
+
+      const cleanUsername = username.trim().toLowerCase();
+      const cleanCode = code.trim();
+      const now = Math.floor(Date.now() / 1000);
+
+      const res = await docClient.send(new GetCommand({
+        TableName: USERS_TABLE,
+        Key: { username: cleanUsername }
+      }));
+
+      const user = res.Item;
+      if (!user) {
+        return jsonResponse(404, { success: false, error: 'User account not found.' });
+      }
+
+      if (user.isVerified) {
+        const token = generateUserToken(user);
+        return jsonResponse(200, { success: true, message: 'Account is already verified.', token, user: { username: user.username, displayName: user.displayName } });
+      }
+
+      if (!user.verificationCode || user.verificationCode !== cleanCode) {
+        return jsonResponse(400, { success: false, error: 'Invalid verification code. Please check your email.' });
+      }
+
+      if (user.verificationCodeExpiresAt && user.verificationCodeExpiresAt < now) {
+        return jsonResponse(400, { success: false, error: 'Verification code has expired. Please request a new one.' });
+      }
+
+      // Activate user account
+      const updatedUser = {
+        ...user,
+        isVerified: true,
+        verificationCode: null,
+        verificationCodeExpiresAt: null,
+        verifiedAt: now
+      };
+
+      await docClient.send(new PutCommand({
+        TableName: USERS_TABLE,
+        Item: updatedUser
+      }));
+
+      const token = generateUserToken(updatedUser);
+      return jsonResponse(200, {
+        success: true,
+        message: 'Account verified successfully!',
+        token,
+        user: { username: updatedUser.username, displayName: updatedUser.displayName, isVerified: true }
+      });
+    }
+
+    // 3. Resend Verification Code (Rate-limited to 10 per 12 hours)
+    if (path === '/api/auth/resend-code' && httpMethod === 'POST') {
+      const { username } = body;
+      if (!username) {
+        return jsonResponse(400, { success: false, error: 'Username is required.' });
+      }
+
+      const cleanUsername = username.trim().toLowerCase();
+      const res = await docClient.send(new GetCommand({
+        TableName: USERS_TABLE,
+        Key: { username: cleanUsername }
+      }));
+
+      const user = res.Item;
+      if (!user) return jsonResponse(404, { success: false, error: 'User not found.' });
+      if (user.isVerified) return jsonResponse(400, { success: false, error: 'User is already verified.' });
+      if (!user.email) return jsonResponse(400, { success: false, error: 'No email associated with this account.' });
+
+      const clientKey = getClientIdentifier(event, body);
+      const emailRate = await checkRateLimit(`rate#email#${user.email}`, 10, 12);
+      if (!emailRate.allowed) return jsonResponse(429, { success: false, error: emailRate.error });
+
+      const clientRate = await checkRateLimit(`rate#client#${clientKey}`, 10, 12);
+      if (!clientRate.allowed) return jsonResponse(429, { success: false, error: clientRate.error });
+
+      const now = Math.floor(Date.now() / 1000);
+      const newOtp = generateNumericOTP(6);
+
+      await docClient.send(new UpdateCommand({
+        TableName: USERS_TABLE,
+        Key: { username: cleanUsername },
+        UpdateExpression: 'SET verificationCode = :c, verificationCodeExpiresAt = :exp',
+        ExpressionAttributeValues: {
+          ':c': newOtp,
+          ':exp': now + (15 * 60)
+        }
+      }));
+
+      await sendVerificationEmail(user.email, newOtp, user.username, 'verification');
+
+      return jsonResponse(200, {
+        success: true,
+        message: `New verification code sent to ${user.email}. (${emailRate.remaining} attempts remaining in 12h window)`
+      });
+    }
+
+    // 4. Login
     if (path === '/api/auth/login' && httpMethod === 'POST') {
       const { username, password } = body;
       if (!username || !password) {
@@ -232,6 +532,16 @@ exports.handler = async (event) => {
         return jsonResponse(401, { success: false, error: 'Invalid username or password.' });
       }
 
+      if (user.email && user.isVerified === false) {
+        return jsonResponse(403, {
+          success: false,
+          requiresVerification: true,
+          email: user.email,
+          username: user.username,
+          error: 'Please verify your email address to log in.'
+        });
+      }
+
       const token = generateUserToken(user);
       return jsonResponse(200, {
         success: true,
@@ -240,6 +550,7 @@ exports.handler = async (event) => {
       });
     }
 
+    // 5. Auth Me
     if (path === '/api/auth/me' && httpMethod === 'GET') {
       if (!authUser) {
         return jsonResponse(401, { success: false, error: 'Not authenticated.' });
@@ -260,8 +571,114 @@ exports.handler = async (event) => {
         user: {
           username: user.username,
           displayName: user.displayName || user.username,
+          email: user.email,
+          isVerified: !!user.isVerified,
           createdAt: user.createdAt
         }
+      });
+    }
+
+    // 6. Forgot Password (Sends OTP to Email)
+    if (path === '/api/auth/forgot-password' && httpMethod === 'POST') {
+      const { usernameOrEmail } = body;
+      if (!usernameOrEmail) {
+        return jsonResponse(400, { success: false, error: 'Username or email address is required.' });
+      }
+
+      const input = usernameOrEmail.trim().toLowerCase();
+      let targetUser = null;
+
+      if (input.includes('@')) {
+        const scanRes = await docClient.send(new ScanCommand({
+          TableName: USERS_TABLE,
+          FilterExpression: 'email = :em',
+          ExpressionAttributeValues: { ':em': input }
+        }));
+        targetUser = scanRes.Items?.[0];
+      } else {
+        const getRes = await docClient.send(new GetCommand({
+          TableName: USERS_TABLE,
+          Key: { username: input }
+        }));
+        targetUser = getRes.Item;
+      }
+
+      if (!targetUser || !targetUser.email) {
+        // Return generic success to prevent email enumeration
+        return jsonResponse(200, { success: true, message: 'If an account exists, a password reset code was sent.' });
+      }
+
+      const clientKey = getClientIdentifier(event, body);
+      const emailRate = await checkRateLimit(`rate#email#${targetUser.email}`, 10, 12);
+      if (!emailRate.allowed) return jsonResponse(429, { success: false, error: emailRate.error });
+
+      const clientRate = await checkRateLimit(`rate#client#${clientKey}`, 10, 12);
+      if (!clientRate.allowed) return jsonResponse(429, { success: false, error: clientRate.error });
+
+      const now = Math.floor(Date.now() / 1000);
+      const resetOtp = generateNumericOTP(6);
+
+      await docClient.send(new UpdateCommand({
+        TableName: USERS_TABLE,
+        Key: { username: targetUser.username },
+        UpdateExpression: 'SET resetCode = :c, resetCodeExpiresAt = :exp',
+        ExpressionAttributeValues: {
+          ':c': resetOtp,
+          ':exp': now + (15 * 60)
+        }
+      }));
+
+      await sendVerificationEmail(targetUser.email, resetOtp, targetUser.username, 'reset');
+
+      return jsonResponse(200, {
+        success: true,
+        username: targetUser.username,
+        message: 'Password reset code sent to your email.'
+      });
+    }
+
+    // 7. Reset Password with OTP
+    if (path === '/api/auth/reset-password' && httpMethod === 'POST') {
+      const { username, code, newPassword } = body;
+      if (!username || !code || !newPassword || newPassword.length < 3) {
+        return jsonResponse(400, { success: false, error: 'Username, 6-digit code, and new password are required.' });
+      }
+
+      const cleanUsername = username.trim().toLowerCase();
+      const now = Math.floor(Date.now() / 1000);
+
+      const res = await docClient.send(new GetCommand({
+        TableName: USERS_TABLE,
+        Key: { username: cleanUsername }
+      }));
+
+      const user = res.Item;
+      if (!user) return jsonResponse(404, { success: false, error: 'User not found.' });
+
+      if (!user.resetCode || user.resetCode !== code.trim()) {
+        return jsonResponse(400, { success: false, error: 'Invalid password reset code.' });
+      }
+
+      if (user.resetCodeExpiresAt && user.resetCodeExpiresAt < now) {
+        return jsonResponse(400, { success: false, error: 'Password reset code has expired. Please request a new one.' });
+      }
+
+      const { hash, salt } = hashPassword(newPassword);
+
+      await docClient.send(new UpdateCommand({
+        TableName: USERS_TABLE,
+        Key: { username: cleanUsername },
+        UpdateExpression: 'SET passwordHash = :h, salt = :s, resetCode = :null, resetCodeExpiresAt = :null',
+        ExpressionAttributeValues: {
+          ':h': hash,
+          ':s': salt,
+          ':null': null
+        }
+      }));
+
+      return jsonResponse(200, {
+        success: true,
+        message: 'Password has been reset successfully! You can now log in with your new password.'
       });
     }
 
@@ -271,7 +688,6 @@ exports.handler = async (event) => {
       const result = await docClient.send(new ScanCommand({ TableName: SEASONS_TABLE }));
       
       let allItems = result.Items || [];
-      // If user is authenticated or filtering by owner, isolate seasons to that owner (or legacy unassigned)
       if (targetUser) {
         allItems = allItems.filter(s => s.ownerUsername === targetUser || !s.ownerUsername);
       }
@@ -301,7 +717,7 @@ exports.handler = async (event) => {
         title: title.trim(),
         description: (description || '').trim(),
         pool: pool && pool.length > 0 ? pool : PROBLEM_CATALOG,
-        usedProblems: {}, // map of slug -> { round, contestCode, usedAt }
+        usedProblems: {},
         contestIds: [],
         isArchived: false,
         createdAt: Math.floor(Date.now() / 1000)
@@ -549,7 +965,6 @@ exports.handler = async (event) => {
         return jsonResponse(404, { success: false, error: 'Contest lobby not found.' });
       }
 
-      // Fetch all submissions for this contest
       const subRes = await docClient.send(new QueryCommand({
         TableName: SUBMISSIONS_TABLE,
         KeyConditionExpression: 'contestId = :cId',
@@ -557,7 +972,6 @@ exports.handler = async (event) => {
       }));
       const submissions = subRes.Items || [];
 
-      // Calculate Live Leaderboard
       const userMap = {};
       (contest.participants || []).forEach(p => {
         userMap[p.username] = {
@@ -617,7 +1031,7 @@ exports.handler = async (event) => {
       });
     }
 
-    // Join Contest (with password check for private lobbies)
+    // Join Contest
     const joinMatch = path.match(/^\/api\/contests\/([a-zA-Z0-9_-]+)\/join$/);
     if (joinMatch && httpMethod === 'POST') {
       const codeOrId = joinMatch[1];
@@ -702,7 +1116,6 @@ exports.handler = async (event) => {
         return jsonResponse(400, { success: false, error: 'Problem not part of this contest.' });
       }
 
-      // Live verification query against LeetCode GraphQL
       const verification = await verifyUserSubmission(
         username,
         problemSlug,
@@ -747,7 +1160,7 @@ exports.handler = async (event) => {
       });
     }
 
-    // Mock / Test Submission (For verification and testing leaderboard ranking updates)
+    // Mock Submission
     const mockSubMatch = path.match(/^\/api\/contests\/([a-zA-Z0-9_-]+)\/mock-submission$/);
     if (mockSubMatch && httpMethod === 'POST') {
       const codeOrId = mockSubMatch[1];
