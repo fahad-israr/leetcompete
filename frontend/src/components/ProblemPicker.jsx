@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Search, Link as LinkIcon, Plus, Trash2, ArrowUp, ArrowDown, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Search, Link as LinkIcon, Plus, Trash2, ArrowUp, ArrowDown, ShieldCheck, CheckCircle2, RotateCw } from 'lucide-react';
 import { api } from '../services/api';
 
 export default function ProblemPicker({
   selectedProblems,
   setSelectedProblems,
   seasonId,
-  seasonRemainingCount
+  seasonRemainingCount,
+  countEasy,
+  setCountEasy,
+  countMedium,
+  setCountMedium,
+  countHard,
+  setCountHard
 }) {
   const [pickerTab, setPickerTab] = useState('random'); // 'random' | 'search' | 'url'
-  
-  // Random / Auto-Draw state
-  const [countEasy, setCountEasy] = useState(1);
-  const [countMedium, setCountMedium] = useState(3);
-  const [countHard, setCountHard] = useState(2);
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Search state
@@ -27,9 +28,18 @@ export default function ProblemPicker({
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState('');
 
+  // Initial Auto-Draw on Mount if no problems selected
   useEffect(() => {
-    loadSearch();
-  }, [filterDifficulty]);
+    if (selectedProblems.length === 0) {
+      handleGenerateRound();
+    }
+  }, [seasonId]);
+
+  useEffect(() => {
+    if (pickerTab === 'search') {
+      loadSearch();
+    }
+  }, [filterDifficulty, pickerTab]);
 
   const loadSearch = async () => {
     setIsSearching(true);
@@ -52,7 +62,7 @@ export default function ProblemPicker({
     loadSearch();
   };
 
-  // Generate / Auto-Draw Round
+  // Generate / Auto-Draw Round (Default: 1 Easy, 2 Medium, 1 Hard)
   const handleGenerateRound = async () => {
     setIsGenerating(true);
     try {
@@ -64,12 +74,12 @@ export default function ProblemPicker({
           countHard,
           countTotal: countEasy + countMedium + countHard
         });
-        if (res.problems) {
+        if (res.problems && res.problems.length > 0) {
           setSelectedProblems(res.problems);
         }
       } else {
         // Standalone catalog draw
-        const res = await api.searchProblems({ limit: 100 });
+        const res = await api.searchProblems({ limit: 120 });
         const easy = res.filter(p => p.difficulty === 'Easy').sort(() => 0.5 - Math.random()).slice(0, countEasy);
         const med = res.filter(p => p.difficulty === 'Medium').sort(() => 0.5 - Math.random()).slice(0, countMedium);
         const hard = res.filter(p => p.difficulty === 'Hard').sort(() => 0.5 - Math.random()).slice(0, countHard);
@@ -77,7 +87,7 @@ export default function ProblemPicker({
         setSelectedProblems(combined);
       }
     } catch (err) {
-      alert(err.message || 'Failed to generate problem set');
+      console.error('Failed to generate problem set:', err);
     } finally {
       setIsGenerating(false);
     }
@@ -154,70 +164,57 @@ export default function ProblemPicker({
 
   return (
     <div>
-      {/* Season Deduplication Notice */}
-      {seasonId && (
-        <div style={{
-          background: 'rgba(16, 185, 129, 0.1)',
-          border: '1px solid rgba(16, 185, 129, 0.3)',
-          borderRadius: 'var(--radius-md)',
-          padding: '12px 16px',
-          marginBottom: '18px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px'
-        }}>
-          <ShieldCheck size={20} color="var(--color-easy)" />
-          <span style={{ fontSize: '0.85rem', color: '#a7f3d0' }}>
-            <strong>Season Pool Partitioning Active:</strong> Problems selected will be drawn strictly from the remaining unused pool of this season.
-          </span>
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div className="tabs" style={{ marginBottom: '16px' }}>
+      {/* Tab Switcher */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
         <button
           type="button"
           onClick={() => setPickerTab('random')}
-          className={`tab-btn ${pickerTab === 'random' ? 'active' : ''}`}
+          className={`btn btn-sm ${pickerTab === 'random' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ flex: 1 }}
         >
-          <Sparkles size={16} />
-          {seasonId ? 'Auto-Draw from Season Pool' : 'Random Problem Generator'}
+          <Sparkles size={14} /> Auto-Draw ({countEasy}E, {countMedium}M, {countHard}H)
         </button>
         <button
           type="button"
           onClick={() => setPickerTab('search')}
-          className={`tab-btn ${pickerTab === 'search' ? 'active' : ''}`}
+          className={`btn btn-sm ${pickerTab === 'search' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ flex: 1 }}
         >
-          <Search size={16} />
-          Catalog Search & Filter
+          <Search size={14} /> Search Catalog
         </button>
         <button
           type="button"
           onClick={() => setPickerTab('url')}
-          className={`tab-btn ${pickerTab === 'url' ? 'active' : ''}`}
+          className={`btn btn-sm ${pickerTab === 'url' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ flex: 1 }}
         >
-          <LinkIcon size={16} />
-          Bulk Paste LeetCode URLs
+          <LinkIcon size={14} /> Paste URLs
         </button>
       </div>
 
-      {/* Tab 1: Auto-Draw */}
+      {/* Tab 1: Auto-Draw (Default) */}
       {pickerTab === 'random' && (
-        <div style={{ background: 'var(--bg-input)', padding: '18px', borderRadius: 'var(--radius-md)', marginBottom: '20px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '14px', marginBottom: '16px' }}>
+        <div style={{ background: 'var(--bg-input)', padding: '16px', borderRadius: 'var(--radius-md)', marginBottom: '18px', border: '1px solid var(--border-color)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '14px' }}>
             <div>
-              <label className="form-label" style={{ color: 'var(--color-easy)' }}>Easy Count</label>
+              <label className="form-label" style={{ color: 'var(--color-easy)', fontWeight: '700', fontSize: '0.8rem' }}>
+                Easy Count *
+              </label>
               <input
                 type="number"
                 min="0"
-                max="6"
+                max="8"
                 value={countEasy}
                 onChange={(e) => setCountEasy(Math.max(0, parseInt(e.target.value) || 0))}
                 className="form-input"
+                style={{ textAlign: 'center', fontWeight: '700' }}
+                required
               />
             </div>
             <div>
-              <label className="form-label" style={{ color: 'var(--color-medium)' }}>Medium Count</label>
+              <label className="form-label" style={{ color: 'var(--color-medium)', fontWeight: '700', fontSize: '0.8rem' }}>
+                Medium Count *
+              </label>
               <input
                 type="number"
                 min="0"
@@ -225,33 +222,40 @@ export default function ProblemPicker({
                 value={countMedium}
                 onChange={(e) => setCountMedium(Math.max(0, parseInt(e.target.value) || 0))}
                 className="form-input"
+                style={{ textAlign: 'center', fontWeight: '700' }}
+                required
               />
             </div>
             <div>
-              <label className="form-label" style={{ color: 'var(--color-hard)' }}>Hard Count</label>
+              <label className="form-label" style={{ color: 'var(--color-hard)', fontWeight: '700', fontSize: '0.8rem' }}>
+                Hard Count *
+              </label>
               <input
                 type="number"
                 min="0"
-                max="6"
+                max="8"
                 value={countHard}
                 onChange={(e) => setCountHard(Math.max(0, parseInt(e.target.value) || 0))}
                 className="form-input"
+                style={{ textAlign: 'center', fontWeight: '700' }}
+                required
               />
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
             <span style={{ fontSize: '0.825rem', color: 'var(--text-muted)' }}>
-              Total: {countEasy + countMedium + countHard} problems per contest
+              🎯 Total: <strong>{countEasy + countMedium + countHard}</strong> questions per match
             </span>
             <button
               type="button"
               onClick={handleGenerateRound}
               disabled={isGenerating || (countEasy + countMedium + countHard === 0)}
-              className="btn btn-primary btn-sm"
+              className="btn btn-secondary btn-sm"
+              style={{ borderColor: 'var(--accent-primary)', color: 'var(--text-main)' }}
             >
-              <Sparkles size={14} />
-              {isGenerating ? 'Drawing Problems...' : seasonId ? 'Draw Unused Season Problems' : 'Roll Problem Set'}
+              <RotateCw size={14} className={isGenerating ? 'spin-animation' : ''} />
+              {isGenerating ? 'Drawing...' : '🎲 Re-Roll Problem Draw'}
             </button>
           </div>
         </div>
@@ -259,8 +263,8 @@ export default function ProblemPicker({
 
       {/* Tab 2: Catalog Search */}
       {pickerTab === 'search' && (
-        <div style={{ background: 'var(--bg-input)', padding: '18px', borderRadius: 'var(--radius-md)', marginBottom: '20px' }}>
-          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+        <div style={{ background: 'var(--bg-input)', padding: '16px', borderRadius: 'var(--radius-md)', marginBottom: '18px', border: '1px solid var(--border-color)' }}>
+          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
             <input
               type="text"
               placeholder="Search by name, ID (#322), or slug..."
@@ -272,7 +276,7 @@ export default function ProblemPicker({
               value={filterDifficulty}
               onChange={(e) => setFilterDifficulty(e.target.value)}
               className="form-select"
-              style={{ width: '130px' }}
+              style={{ width: '110px' }}
             >
               <option value="">All Diff</option>
               <option value="Easy">Easy</option>
@@ -284,7 +288,7 @@ export default function ProblemPicker({
             </button>
           </form>
 
-          <div style={{ maxHeight: '220px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {isSearching ? (
               <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-dim)' }}>Searching...</div>
             ) : searchResults.map((p) => {
@@ -296,17 +300,17 @@ export default function ProblemPicker({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '8px 14px',
+                    padding: '8px 12px',
                     background: 'var(--bg-surface)',
                     border: '1px solid var(--border-color)',
                     borderRadius: 'var(--radius-sm)'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--text-dim)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--text-dim)' }}>
                       #{p.frontendId}
                     </span>
-                    <span style={{ fontWeight: '500', fontSize: '0.9rem' }}>
+                    <span style={{ fontWeight: '500', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {p.title}
                     </span>
                     <span className={`badge badge-${p.difficulty.toLowerCase()}`}>
@@ -316,17 +320,17 @@ export default function ProblemPicker({
 
                   <div>
                     {isSelected ? (
-                      <span style={{ fontSize: '0.8rem', color: 'var(--color-easy)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <CheckCircle2 size={13} /> Added
+                      <span style={{ fontSize: '0.75rem', color: 'var(--color-easy)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle2 size={12} /> Added
                       </span>
                     ) : (
                       <button
                         type="button"
                         onClick={() => addProblem(p)}
                         className="btn btn-secondary btn-sm"
-                        style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                        style={{ padding: '3px 8px', fontSize: '0.75rem', minHeight: '28px' }}
                       >
-                        <Plus size={12} /> Add
+                        <Plus size={11} /> Add
                       </button>
                     )}
                   </div>
@@ -339,7 +343,7 @@ export default function ProblemPicker({
 
       {/* Tab 3: Paste URLs */}
       {pickerTab === 'url' && (
-        <div style={{ background: 'var(--bg-input)', padding: '18px', borderRadius: 'var(--radius-md)', marginBottom: '20px' }}>
+        <div style={{ background: 'var(--bg-input)', padding: '16px', borderRadius: 'var(--radius-md)', marginBottom: '18px', border: '1px solid var(--border-color)' }}>
           <form onSubmit={handleImportUrl}>
             <label className="form-label">
               Paste LeetCode URLs or Problem Slugs (one per line or comma-separated)
@@ -347,7 +351,7 @@ export default function ProblemPicker({
             <textarea
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
-              placeholder="https://leetcode.com/problems/trapping-rain-water/&#10;https://leetcode.com/problems/coin-change/"
+              placeholder="https://leetcode.com/problems/two-sum/&#10;https://leetcode.com/problems/coin-change/"
               className="form-textarea"
               rows={3}
               style={{ marginBottom: '10px' }}
@@ -359,7 +363,7 @@ export default function ProblemPicker({
             )}
             <button type="submit" disabled={isImporting || !urlInput.trim()} className="btn btn-primary btn-sm">
               <LinkIcon size={14} />
-              {isImporting ? 'Resolving problems...' : 'Import & Add'}
+              {isImporting ? 'Resolving...' : 'Import & Add'}
             </button>
           </form>
         </div>
@@ -368,15 +372,15 @@ export default function ProblemPicker({
       {/* Selected Problems Tray */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <h4 style={{ fontSize: '0.9rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-            Contest Problems ({selectedProblems.length})
+          <h4 style={{ fontSize: '0.85rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+            Selected Questions ({selectedProblems.length})
           </h4>
           {selectedProblems.length > 0 && (
             <button
               type="button"
               onClick={() => setSelectedProblems([])}
               className="btn btn-danger btn-sm"
-              style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+              style={{ padding: '2px 8px', fontSize: '0.75rem', minHeight: '24px' }}
             >
               Clear All
             </button>
@@ -385,14 +389,15 @@ export default function ProblemPicker({
 
         {selectedProblems.length === 0 ? (
           <div style={{
-            border: '2px dashed var(--border-color)',
+            background: 'var(--bg-input)',
+            border: '1px dashed var(--border-color)',
             borderRadius: 'var(--radius-md)',
             padding: '24px',
             textAlign: 'center',
             color: 'var(--text-dim)',
-            fontSize: '0.9rem'
+            fontSize: '0.875rem'
           }}>
-            No problems selected yet. Use the Auto-Draw or search above.
+            No problems selected yet. The arena will automatically draw <strong>{countEasy} Easy, {countMedium} Medium, {countHard} Hard</strong> questions upon launch!
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -406,81 +411,89 @@ export default function ProblemPicker({
                   padding: '10px 14px',
                   background: 'var(--bg-card)',
                   border: '1px solid var(--border-color)',
-                  borderRadius: 'var(--radius-md)'
+                  borderRadius: 'var(--radius-md)',
+                  gap: '10px'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
                   <span style={{
-                    background: 'var(--accent-primary)',
-                    color: '#fff',
-                    fontWeight: '700',
-                    fontSize: '0.8rem',
-                    width: '22px',
-                    height: '22px',
-                    borderRadius: '50%',
+                    background: 'var(--accent-primary-light)',
+                    color: 'var(--accent-primary)',
+                    fontWeight: '800',
+                    fontSize: '0.75rem',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '6px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    flexShrink: 0
                   }}>
-                    {idx + 1}
+                    Q{idx + 1}
                   </span>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontWeight: '600', fontSize: '0.925rem' }}>
-                        {prob.title}
-                      </span>
+
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: '600', fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {prob.title}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
                       <span className={`badge badge-${prob.difficulty.toLowerCase()}`}>
                         {prob.difficulty}
                       </span>
+                      {prob.frontendId && (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+                          #{prob.frontendId}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Pts:</span>
                     <input
                       type="number"
                       value={prob.points || (idx + 1) * 100}
                       onChange={(e) => updatePoints(prob.titleSlug, e.target.value)}
                       style={{
-                        width: '55px',
+                        width: '54px',
                         background: 'var(--bg-input)',
                         border: '1px solid var(--border-color)',
                         borderRadius: '4px',
-                        color: '#fff',
-                        padding: '3px 5px',
-                        fontSize: '0.8rem',
-                        textAlign: 'center'
+                        padding: '4px',
+                        color: 'var(--text-main)',
+                        textAlign: 'center',
+                        fontSize: '0.75rem',
+                        fontWeight: '700'
                       }}
                     />
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <button
-                      type="button"
-                      disabled={idx === 0}
-                      onClick={() => moveProblem(idx, -1)}
-                      style={{ background: 'none', border: 'none', color: idx === 0 ? 'var(--text-dim)' : 'var(--text-muted)', cursor: 'pointer' }}
-                    >
-                      <ArrowUp size={13} />
-                    </button>
-                    <button
-                      type="button"
-                      disabled={idx === selectedProblems.length - 1}
-                      onClick={() => moveProblem(idx, 1)}
-                      style={{ background: 'none', border: 'none', color: idx === selectedProblems.length - 1 ? 'var(--text-dim)' : 'var(--text-muted)', cursor: 'pointer' }}
-                    >
-                      <ArrowDown size={13} />
-                    </button>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>pts</span>
                   </div>
 
                   <button
                     type="button"
-                    onClick={() => removeProblem(prob.titleSlug)}
-                    style={{ background: 'none', border: 'none', color: '#fb7185', cursor: 'pointer', padding: '4px' }}
+                    onClick={() => moveProblem(idx, -1)}
+                    disabled={idx === 0}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: idx === 0 ? 'default' : 'pointer', padding: '2px' }}
                   >
-                    <Trash2 size={15} />
+                    <ArrowUp size={14} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => moveProblem(idx, 1)}
+                    disabled={idx === selectedProblems.length - 1}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: idx === selectedProblems.length - 1 ? 'default' : 'pointer', padding: '2px' }}
+                  >
+                    <ArrowDown size={14} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => removeProblem(prob.titleSlug)}
+                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px' }}
+                  >
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </div>

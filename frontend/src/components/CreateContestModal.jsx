@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Play, Clock, Trophy, Lock, Globe, Layers, AlertCircle } from 'lucide-react';
+import { X, Play, Clock, Trophy, Lock, Globe, Layers, AlertCircle, Loader2 } from 'lucide-react';
 import ProblemPicker from './ProblemPicker';
 import { api } from '../services/api';
 
@@ -7,10 +7,16 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
   const [title, setTitle] = useState('');
   const [seasonId, setSeasonId] = useState(initialSeasonId || '');
   const [seasons, setSeasons] = useState([]);
-  const [durationMinutes, setDurationMinutes] = useState(90);
+  const [durationMinutes, setDurationMinutes] = useState(60); // Default: 60 minutes
   const [isPrivate, setIsPrivate] = useState(false);
   const [password, setPassword] = useState('');
   const [hostUsername, setHostUsername] = useState('');
+  
+  // Mandatory Difficulty Counts (Defaults: 1 Easy, 2 Medium, 1 Hard)
+  const [countEasy, setCountEasy] = useState(1);
+  const [countMedium, setCountMedium] = useState(2);
+  const [countHard, setCountHard] = useState(1);
+  
   const [selectedProblems, setSelectedProblems] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -21,6 +27,10 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
       const savedUser = localStorage.getItem('leetcompete_username') || '';
       setHostUsername(savedUser);
       setSeasonId(initialSeasonId || '');
+      setDurationMinutes(60);
+      setCountEasy(1);
+      setCountMedium(2);
+      setCountHard(1);
       setIsPrivate(false);
       setPassword('');
       setErrorMessage('');
@@ -40,8 +50,10 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (selectedProblems.length === 0) {
-      setErrorMessage('Please select at least 1 problem for the contest.');
+    const totalCount = countEasy + countMedium + countHard;
+    
+    if (totalCount === 0 && selectedProblems.length === 0) {
+      setErrorMessage('Please specify at least 1 problem count (Easy, Medium, or Hard).');
       return;
     }
 
@@ -54,13 +66,37 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
     setErrorMessage('');
 
     try {
+      let finalProblems = selectedProblems;
+
+      // If user hasn't explicitly populated problems, perform auto-draw
+      if (finalProblems.length === 0) {
+        if (seasonId) {
+          const genRes = await api.generateSeasonRound(seasonId, {
+            countEasy,
+            countMedium,
+            countHard,
+            countTotal: totalCount
+          });
+          finalProblems = genRes.problems || [];
+        } else {
+          const catalog = await api.searchProblems({ limit: 120 });
+          const easy = catalog.filter(p => p.difficulty === 'Easy').sort(() => 0.5 - Math.random()).slice(0, countEasy);
+          const med = catalog.filter(p => p.difficulty === 'Medium').sort(() => 0.5 - Math.random()).slice(0, countMedium);
+          const hard = catalog.filter(p => p.difficulty === 'Hard').sort(() => 0.5 - Math.random()).slice(0, countHard);
+          finalProblems = [...easy, ...med, ...hard].map((p, idx) => ({ ...p, points: (idx + 1) * 100 }));
+        }
+      }
+
       const contest = await api.createContest({
         title: title.trim() || undefined,
         seasonId: seasonId || undefined,
-        durationMinutes: Number(durationMinutes) || 90,
+        durationMinutes: Number(durationMinutes) || 60,
+        countEasy,
+        countMedium,
+        countHard,
         hostUsername: hostUsername.trim() || 'Host',
         password: isPrivate ? password.trim() : undefined,
-        problems: selectedProblems
+        problems: finalProblems
       });
 
       if (hostUsername.trim()) {
@@ -79,22 +115,23 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
   const selectedSeason = seasons.find(s => s.id === seasonId);
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: '820px' }}>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '820px' }}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{
-              background: 'linear-gradient(135deg, #2563eb, #06b6d4)',
-              width: '32px',
-              height: '32px',
+              background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover))',
+              width: '34px',
+              height: '34px',
               borderRadius: '8px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              boxShadow: '0 0 12px var(--accent-orange-glow)'
             }}>
               <Trophy size={18} color="#fff" />
             </div>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: '700' }}>Host New Contest</h3>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: '800' }}>Host New Contest</h3>
           </div>
           <button
             onClick={onClose}
@@ -127,7 +164,7 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
             {/* Top Config Row */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '18px' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Contest Title</label>
+                <label className="form-label">Contest Title (Optional)</label>
                 <input
                   type="text"
                   placeholder={selectedSeason ? `${selectedSeason.title} Round` : "e.g. Weekly Speed Clash #1"}
@@ -141,7 +178,7 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
                 <label className="form-label">
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Layers size={14} color="var(--accent-primary)" />
-                    Season Binding
+                    Season Pool
                   </span>
                 </label>
                 <select
@@ -149,7 +186,7 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
                   onChange={(e) => setSeasonId(e.target.value)}
                   className="form-select"
                 >
-                  <option value="">None (Standalone Contest)</option>
+                  <option value="">None (Standard LeetCode Catalog)</option>
                   {seasons.map(s => (
                     <option key={s.id} value={s.id}>
                       {s.title} ({s.remainingProblemCount || s.totalPoolCount || 0} unseen pool problems)
@@ -161,8 +198,8 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Clock size={14} color="var(--accent-cyan)" />
-                    Duration
+                    <Clock size={14} color="var(--accent-primary)" />
+                    Duration *
                   </span>
                 </label>
                 <div style={{ display: 'flex', gap: '6px' }}>
@@ -195,41 +232,34 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
               gap: '12px'
             }}>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600', fontSize: '0.925rem' }}>
-                  {isPrivate ? <Lock size={16} color="#fcd34d" /> : <Globe size={16} color="var(--color-easy)" />}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '0.9rem' }}>
+                  {isPrivate ? <Lock size={15} color="#fbbf24" /> : <Globe size={15} color="var(--color-easy)" />}
                   <span>{isPrivate ? 'Private Contest (Password Protected)' : 'Public Contest (Open to All)'}</span>
                 </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '2px' }}>
-                  {isPrivate ? 'Participants must enter a password to join this lobby.' : 'Anyone with the lobby code can enter and solve without a password.'}
+                <div style={{ fontSize: '0.775rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+                  {isPrivate ? 'Participants must enter password to join.' : 'Anyone with the 5-letter code can join freely.'}
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {isPrivate && (
                   <input
                     type="text"
-                    placeholder="Enter Contest Password"
+                    placeholder="Contest Password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    style={{
-                      background: 'var(--bg-surface)',
-                      border: '1px solid var(--accent-primary)',
-                      borderRadius: '6px',
-                      padding: '6px 12px',
-                      color: '#fff',
-                      fontSize: '0.85rem',
-                      width: '180px',
-                      outline: 'none'
-                    }}
+                    className="form-input"
+                    style={{ width: '160px', padding: '6px 10px', fontSize: '0.825rem' }}
+                    autoFocus
                   />
                 )}
                 <button
                   type="button"
                   onClick={() => setIsPrivate(!isPrivate)}
-                  className={`btn btn-sm ${isPrivate ? 'btn-secondary' : 'btn-secondary'}`}
-                  style={{ borderColor: isPrivate ? '#fcd34d' : 'var(--border-color)' }}
+                  className="btn btn-secondary btn-sm"
+                  style={{ borderColor: isPrivate ? '#fbbf24' : 'var(--border-color)' }}
                 >
-                  {isPrivate ? 'Make Public' : 'Set as Private'}
+                  {isPrivate ? 'Make Public' : 'Set Private'}
                 </button>
               </div>
             </div>
@@ -240,6 +270,12 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
               setSelectedProblems={setSelectedProblems}
               seasonId={seasonId}
               seasonRemainingCount={selectedSeason?.remainingProblemCount}
+              countEasy={countEasy}
+              setCountEasy={setCountEasy}
+              countMedium={countMedium}
+              setCountMedium={setCountMedium}
+              countHard={countHard}
+              setCountHard={setCountHard}
             />
           </div>
 
@@ -249,11 +285,21 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || selectedProblems.length === 0}
+              disabled={isSubmitting || (countEasy + countMedium + countHard === 0 && selectedProblems.length === 0)}
               className="btn btn-primary"
+              style={{ minWidth: '180px' }}
             >
-              <Play size={16} />
-              {isSubmitting ? 'Creating Contest...' : 'Launch Contest Arena'}
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={16} className="spin-animation" />
+                  <span>Launching Arena...</span>
+                </>
+              ) : (
+                <>
+                  <Play size={16} />
+                  <span>Launch Contest Arena</span>
+                </>
+              )}
             </button>
           </div>
         </form>
