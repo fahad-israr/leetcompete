@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, Trophy, Plus, ShieldCheck, ChevronRight, ArrowLeft, ExternalLink, Calendar, Users, Award, Trash2, CheckCircle2, Circle } from 'lucide-react';
+import { Layers, Plus, ShieldCheck, ChevronRight, ArrowLeft, ExternalLink, Calendar, CheckCircle2, Circle } from 'lucide-react';
 import { api } from '../services/api';
 
 export default function SeasonManager({
@@ -10,7 +10,7 @@ export default function SeasonManager({
   const [seasons, setSeasons] = useState([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState(null);
   const [seasonDetail, setSeasonDetail] = useState(null);
-  const [activeTab, setActiveTab] = useState('pool'); // 'pool' | 'standings' | 'rounds'
+  const [activeTab, setActiveTab] = useState('pool'); // 'pool' | 'rounds'
   const [poolFilter, setPoolFilter] = useState('all'); // 'all' | 'remaining' | 'used'
   const [poolDiffFilter, setPoolDiffFilter] = useState('all'); // 'all' | 'Easy' | 'Medium' | 'Hard'
   const [isLoading, setIsLoading] = useState(true);
@@ -88,7 +88,7 @@ export default function SeasonManager({
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                <span className="badge badge-purple">Season League</span>
+                <span className="badge badge-blue">Season League</span>
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
                   Created {new Date((seasonDetail.createdAt || 0) * 1000).toLocaleDateString()}
                 </span>
@@ -130,7 +130,7 @@ export default function SeasonManager({
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
                 Next Up
               </div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.4rem', fontWeight: '800', color: 'var(--accent-purple)', marginBottom: '12px' }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.4rem', fontWeight: '800', color: '#60a5fa', marginBottom: '12px' }}>
                 Round #{(seasonDetail.contestIds?.length || 0) + 1}
               </div>
               <button
@@ -301,7 +301,7 @@ export default function SeasonManager({
                 <div key={cId} className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span className="badge badge-purple">Round #{idx + 1}</span>
+                      <span className="badge badge-blue">Round #{idx + 1}</span>
                     </div>
                     <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '12px' }}>
                       {seasonDetail.title} — Round #{idx + 1}
@@ -346,7 +346,7 @@ export default function SeasonManager({
       ) : seasons.length === 0 ? (
         <div className="glass-panel" style={{ textAlign: 'center', padding: '60px 20px' }}>
           <div style={{
-            background: 'var(--accent-purple-light)',
+            background: 'var(--accent-primary-light)',
             width: '60px',
             height: '60px',
             borderRadius: '50%',
@@ -355,7 +355,7 @@ export default function SeasonManager({
             justifyContent: 'center',
             margin: '0 auto 16px'
           }}>
-            <Layers size={30} color="var(--accent-purple)" />
+            <Layers size={30} color="var(--accent-primary)" />
           </div>
           <h3 style={{ fontSize: '1.3rem', fontWeight: '700', marginBottom: '8px' }}>No Seasons Created Yet</h3>
           <p style={{ color: 'var(--text-muted)', maxWidth: '480px', margin: '0 auto 20px' }}>
@@ -378,7 +378,7 @@ export default function SeasonManager({
               >
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <span className="badge badge-purple">Season League</span>
+                    <span className="badge badge-blue">Season League</span>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
                       {new Date((s.createdAt || 0) * 1000).toLocaleDateString()}
                     </span>

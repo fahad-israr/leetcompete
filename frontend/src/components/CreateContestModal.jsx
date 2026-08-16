@@ -84,7 +84,7 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{
-              background: 'linear-gradient(135deg, #a855f7, #6366f1)',
+              background: 'linear-gradient(135deg, #2563eb, #06b6d4)',
               width: '32px',
               height: '32px',
               borderRadius: '8px',
@@ -140,7 +140,7 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Layers size={14} color="var(--accent-purple)" />
+                    <Layers size={14} color="var(--accent-primary)" />
                     Season Binding
                   </span>
                 </label>
@@ -213,7 +213,7 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
                     onChange={(e) => setPassword(e.target.value)}
                     style={{
                       background: 'var(--bg-surface)',
-                      border: '1px solid var(--accent-purple)',
+                      border: '1px solid var(--accent-primary)',
                       borderRadius: '6px',
                       padding: '6px 12px',
                       color: '#fff',

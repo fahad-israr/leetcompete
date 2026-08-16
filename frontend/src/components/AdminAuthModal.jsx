@@ -43,7 +43,7 @@ export default function AdminAuthModal({ isOpen, onClose, onAuthSuccess }) {
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{
-              background: 'linear-gradient(135deg, #a855f7, #6366f1)',
+              background: 'linear-gradient(135deg, #2563eb, #06b6d4)',
               width: '32px',
               height: '32px',
               borderRadius: '8px',
@@ -96,7 +96,7 @@ export default function AdminAuthModal({ isOpen, onClose, onAuthSuccess }) {
                 <div className="form-group">
                   <label className="form-label">
                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <KeyRound size={14} color="var(--accent-purple)" />
+                      <KeyRound size={14} color="var(--accent-primary)" />
                       Admin Passcode
                     </span>
                   </label>

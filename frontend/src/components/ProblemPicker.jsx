@@ -411,7 +411,7 @@ export default function ProblemPicker({
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{
-                    background: 'var(--accent-purple)',
+                    background: 'var(--accent-primary)',
                     color: '#fff',
                     fontWeight: '700',
                     fontSize: '0.8rem',

@@ -8,7 +8,7 @@ export default function Footer() {
       padding: '24px',
       marginTop: 'auto',
       textAlign: 'center',
-      background: 'rgba(11, 12, 21, 0.95)',
+      background: 'rgba(11, 15, 25, 0.95)',
       fontSize: '0.875rem',
       color: 'var(--text-muted)'
     }}>
@@ -21,7 +21,7 @@ export default function Footer() {
           target="_blank"
           rel="noreferrer"
           style={{
-            color: 'var(--accent-purple)',
+            color: '#60a5fa',
             fontWeight: '600',
             textDecoration: 'none',
             display: 'inline-flex',

@@ -245,7 +245,7 @@ export default function LobbyArena({ contestCode, onBack }) {
                 {contest.title}
               </h1>
               {contest.seasonTitle && (
-                <span className="badge badge-purple" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <span className="badge badge-blue" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                   <Layers size={12} /> {contest.seasonTitle} (Round #{contest.seasonRound || 1})
                 </span>
               )}
@@ -270,7 +270,7 @@ export default function LobbyArena({ contestCode, onBack }) {
             title="Click to copy invite link"
           >
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Lobby ID:</span>
-            <strong style={{ fontFamily: 'var(--font-mono)', fontSize: '1.05rem', color: '#fff', letterSpacing: '0.05em' }}>
+            <strong style={{ fontFamily: 'var(--font-mono)', fontSize: '1.05rem', color: '#60a5fa', letterSpacing: '0.05em' }}>
               {contest.code}
             </strong>
             {copiedLink ? <Check size={14} color="var(--color-easy)" /> : <Share2 size={14} color="var(--text-dim)" />}
@@ -337,13 +337,13 @@ export default function LobbyArena({ contestCode, onBack }) {
 
           {showHelp && (
             <div style={{
-              background: 'rgba(168, 85, 247, 0.1)',
-              border: '1px solid rgba(168, 85, 247, 0.3)',
+              background: 'rgba(59, 130, 246, 0.1)',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
               borderRadius: 'var(--radius-md)',
               padding: '14px 18px',
               marginBottom: '20px',
               fontSize: '0.875rem',
-              color: '#e9d5ff',
+              color: '#bfdbfe',
               lineHeight: 1.5
             }}>
               <strong>How Submission Verification Works:</strong>
@@ -384,7 +384,7 @@ export default function LobbyArena({ contestCode, onBack }) {
               <button
                 type="submit"
                 className="btn btn-secondary btn-sm"
-                style={{ borderColor: 'var(--accent-purple)', color: '#fff' }}
+                style={{ borderColor: 'var(--accent-primary)', color: '#fff' }}
               >
                 <UserCheck size={14} /> Save
               </button>

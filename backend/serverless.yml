@@ -1,19 +1,20 @@
 service: leetcompete
 
 frameworkVersion: '3'
+useDotenv: true
 
 provider:
   name: aws
   runtime: nodejs20.x
-  region: us-east-1
+  region: ${env:AWS_REGION, 'us-east-1'}
   stage: ${opt:stage, 'dev'}
   environment:
     SEASONS_TABLE: ${self:service}-seasons-${self:provider.stage}
     CONTESTS_TABLE: ${self:service}-contests-${self:provider.stage}
     SUBMISSIONS_TABLE: ${self:service}-submissions-${self:provider.stage}
     MESSAGES_TABLE: ${self:service}-messages-${self:provider.stage}
-    ADMIN_PASSCODE: ${opt:adminPasscode, 'leetcompete_admin_2026'}
-    ALLOWED_ADMIN_EMAILS: ${opt:adminEmails, 'fahad00cms@gmail.com'}
+    ADMIN_PASSCODE: ${env:ADMIN_PASSCODE, 'leetcompete_admin_2026'}
+    ALLOWED_ADMIN_EMAILS: ${env:ALLOWED_ADMIN_EMAILS, 'fahad00cms@gmail.com'}
   iam:
     role:
       statements:

@@ -36,7 +36,7 @@ export default function LobbyChat({ messages = [], onSendMessage, currentUsernam
         gap: '8px',
         background: 'var(--bg-card)'
       }}>
-        <MessageSquare size={16} color="var(--accent-purple)" />
+        <MessageSquare size={16} color="#60a5fa" />
         <span style={{ fontWeight: '700', fontSize: '0.9rem', letterSpacing: '0.02em' }}>
           Lobby Activity & Chat
         </span>
@@ -74,7 +74,7 @@ export default function LobbyChat({ messages = [], onSendMessage, currentUsernam
                   style={{
                     padding: '8px 14px',
                     borderRadius: isMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-                    background: isMe ? 'var(--accent-purple)' : 'var(--bg-input)',
+                    background: isMe ? 'linear-gradient(135deg, #2563eb, #0284c7)' : 'var(--bg-input)',
                     color: '#fff',
                     fontSize: '0.875rem',
                     border: isMe ? 'none' : '1px solid var(--border-color)',

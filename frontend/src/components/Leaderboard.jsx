@@ -47,9 +47,9 @@ export default function Leaderboard({ leaderboard = [], problems = [] }) {
                     width: '30px',
                     height: '30px',
                     borderRadius: '50%',
-                    background: 'var(--accent-purple-light)',
-                    border: '1px solid rgba(168, 85, 247, 0.3)',
-                    color: 'var(--accent-purple)',
+                    background: 'var(--accent-primary-light)',
+                    border: '1px solid rgba(59, 130, 246, 0.35)',
+                    color: '#60a5fa',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -74,7 +74,7 @@ export default function Leaderboard({ leaderboard = [], problems = [] }) {
               <td style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: '700', color: entry.solvedCount > 0 ? 'var(--color-easy)' : 'var(--text-dim)' }}>
                 {entry.solvedCount} / {problems.length}
               </td>
-              <td style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: '700', color: 'var(--accent-purple)' }}>
+              <td style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: '700', color: '#60a5fa' }}>
                 {entry.totalScore}
               </td>
               <td style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>

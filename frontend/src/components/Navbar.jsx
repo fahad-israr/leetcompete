@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, PlusCircle, Compass, Layers, User, Check, Edit2, ShieldCheck, Lock, Unlock } from 'lucide-react';
+import { Trophy, PlusCircle, Compass, Layers, User, Check, Edit2, ShieldCheck, Lock } from 'lucide-react';
 
 export default function Navbar({
   activeView,
@@ -37,7 +37,7 @@ export default function Navbar({
 
   return (
     <nav style={{
-      background: 'rgba(11, 12, 21, 0.95)',
+      background: 'rgba(15, 23, 42, 0.95)',
       backdropFilter: 'blur(16px)',
       borderBottom: '1px solid var(--border-color)',
       padding: '0 24px',
@@ -56,14 +56,14 @@ export default function Navbar({
           style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
         >
           <div style={{
-            background: 'linear-gradient(135deg, #a855f7, #6366f1)',
+            background: 'linear-gradient(135deg, #2563eb, #06b6d4)',
             width: '38px',
             height: '38px',
             borderRadius: '10px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 0 15px rgba(168, 85, 247, 0.4)'
+            boxShadow: '0 0 16px rgba(37, 99, 235, 0.45)'
           }}>
             <Trophy size={20} color="#fff" />
           </div>
@@ -71,7 +71,7 @@ export default function Navbar({
             fontSize: '1.45rem',
             fontWeight: '800',
             letterSpacing: '-0.02em',
-            background: 'linear-gradient(to right, #ffffff, #e9d5ff, #c084fc)',
+            background: 'linear-gradient(to right, #ffffff, #93c5fd, #38bdf8)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent'
           }}>
@@ -105,7 +105,7 @@ export default function Navbar({
         {/* Admin Mode Badge / Button */}
         <button
           onClick={onOpenAdminModal}
-          className={`btn btn-sm ${isAdminUnlocked ? 'btn-secondary' : 'btn-secondary'}`}
+          className="btn btn-secondary btn-sm"
           style={{
             borderColor: isAdminUnlocked ? 'var(--color-easy)' : 'var(--border-color)',
             color: isAdminUnlocked ? 'var(--color-easy)' : 'var(--text-muted)'
@@ -119,9 +119,9 @@ export default function Navbar({
         <button
           onClick={onOpenCreateSeason}
           className="btn btn-secondary btn-sm"
-          style={{ borderColor: 'rgba(168, 85, 247, 0.35)' }}
+          style={{ borderColor: 'rgba(59, 130, 246, 0.4)' }}
         >
-          <Layers size={15} />
+          <Layers size={15} color="#60a5fa" />
           New Season
         </button>
 
@@ -143,7 +143,7 @@ export default function Navbar({
           padding: '6px 12px',
           gap: '8px'
         }}>
-          <User size={15} color="var(--accent-purple)" />
+          <User size={15} color="var(--accent-primary)" />
           {isEditingUser ? (
             <form onSubmit={handleSaveUser} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <input
@@ -154,7 +154,7 @@ export default function Navbar({
                 autoFocus
                 style={{
                   background: 'var(--bg-input)',
-                  border: '1px solid var(--accent-purple)',
+                  border: '1px solid var(--accent-primary)',
                   borderRadius: '4px',
                   padding: '2px 8px',
                   color: '#fff',
@@ -163,7 +163,7 @@ export default function Navbar({
                   outline: 'none'
                 }}
               />
-              <button type="submit" style={{ background: 'var(--accent-purple)', border: 'none', borderRadius: '4px', padding: '4px', cursor: 'pointer', color: '#fff' }}>
+              <button type="submit" style={{ background: 'var(--accent-primary)', border: 'none', borderRadius: '4px', padding: '4px', cursor: 'pointer', color: '#fff' }}>
                 <Check size={13} />
               </button>
             </form>

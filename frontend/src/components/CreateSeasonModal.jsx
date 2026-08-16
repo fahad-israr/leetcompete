@@ -23,7 +23,7 @@ export default function CreateSeasonModal({ isOpen, onClose, onSeasonCreated }) 
     setError('');
 
     try {
-      let pool = undefined; // defaults to full 150 catalog in backend
+      let pool = undefined;
 
       if (poolType === 'custom-urls' && bulkUrls.trim()) {
         const inputs = bulkUrls.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
@@ -63,7 +63,7 @@ export default function CreateSeasonModal({ isOpen, onClose, onSeasonCreated }) 
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{
-              background: 'linear-gradient(135deg, #a855f7, #6366f1)',
+              background: 'linear-gradient(135deg, #2563eb, #06b6d4)',
               width: '32px',
               height: '32px',
               borderRadius: '8px',
@@ -162,12 +162,12 @@ export default function CreateSeasonModal({ isOpen, onClose, onSeasonCreated }) 
             </div>
 
             <div style={{
-              background: 'rgba(168, 85, 247, 0.08)',
-              border: '1px solid rgba(168, 85, 247, 0.25)',
+              background: 'rgba(59, 130, 246, 0.1)',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
               borderRadius: 'var(--radius-md)',
               padding: '12px 14px',
               fontSize: '0.825rem',
-              color: '#d8b4fe'
+              color: '#93c5fd'
             }}>
               ✨ <strong>Zero-Repetition Partitioning:</strong> Once the season starts, rounds will automatically draw 4–6 problems sequentially from this pool until all problems have been covered!
             </div>
