@@ -152,6 +152,13 @@ async function getRecentAcSubmissions(username, limit = 20) {
  * Verify if a user has solved a specific problem during an active contest
  */
 async function verifyUserSubmission(username, problemSlug, contestStartTime, contestEndTime) {
+  if (!contestStartTime || Number(contestStartTime) <= 0) {
+    return {
+      verified: false,
+      reason: 'The contest has not started yet. Submissions can only be verified after the match starts.'
+    };
+  }
+
   const submissions = await getRecentAcSubmissions(username, 25);
   const targetSlug = problemSlug.toLowerCase().trim();
 
@@ -166,19 +173,29 @@ async function verifyUserSubmission(username, problemSlug, contestStartTime, con
     };
   }
 
+  const startWindow = Number(contestStartTime);
+  const endWindow = contestEndTime ? (Number(contestEndTime) + 30) : Infinity;
+
   const validSubmission = matchedSubmissions.find(sub => {
     const subTime = Number(sub.timestamp);
-    const startWindow = (contestStartTime || 0) - 60;
-    const endWindow = contestEndTime ? (contestEndTime + 60) : Infinity;
     return subTime >= startWindow && subTime <= endWindow;
   });
 
   if (!validSubmission) {
     const latestSub = matchedSubmissions[0];
-    const subDate = new Date(latestSub.timestamp * 1000).toLocaleTimeString();
+    const subDate = new Date(latestSub.timestamp * 1000).toLocaleString();
+    const startDate = new Date(startWindow * 1000).toLocaleTimeString();
+    
+    if (Number(latestSub.timestamp) < startWindow) {
+      return {
+        verified: false,
+        reason: `Found a previous AC solution on LeetCode from ${subDate}, but it was submitted before this contest started (Match began at ${startDate}). Please solve and re-submit the problem on LeetCode during the active match window.`
+      };
+    }
+
     return {
       verified: false,
-      reason: `Found an AC submission on LeetCode at ${subDate}, but it was submitted outside the contest time window.`
+      reason: `Found an AC submission on LeetCode at ${subDate}, but it was submitted after the contest ended.`
     };
   }
 

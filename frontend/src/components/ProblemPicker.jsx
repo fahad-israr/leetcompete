@@ -82,21 +82,26 @@ export default function ProblemPicker({
     }
   }, [seasonId]);
 
+  // Live As-You-Type Search with 200ms debounce
   useEffect(() => {
-    if (pickerTab === 'search') {
+    if (pickerTab !== 'search') return;
+
+    const debounceTimer = setTimeout(() => {
       loadSearch();
-    }
-  }, [filterDifficulty, pickerTab]);
+    }, 200);
+
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery, filterDifficulty, pickerTab]);
 
   const loadSearch = async () => {
     setIsSearching(true);
     try {
       const results = await api.searchProblems({
-        query: searchQuery,
+        query: searchQuery.trim(),
         difficulty: filterDifficulty,
-        limit: 40
+        limit: 50
       });
-      setSearchResults(results);
+      setSearchResults(results || []);
     } catch (err) {
       console.error('Failed to search problems:', err);
     } finally {
@@ -105,7 +110,7 @@ export default function ProblemPicker({
   };
 
   const handleSearchSubmit = (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     loadSearch();
   };
 

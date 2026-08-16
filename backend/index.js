@@ -1077,13 +1077,7 @@ exports.handler = async (event) => {
           ...p,
           points: p.points || (p.difficulty === 'Easy' ? 100 : p.difficulty === 'Hard' ? 300 : 200)
         })),
-        participants: [
-          {
-            username: hostUsername.trim().toLowerCase(),
-            displayName: hostUsername.trim(),
-            joinedAt: now
-          }
-        ],
+        participants: [],
         createdAt: now
       };
 
@@ -1139,7 +1133,16 @@ exports.handler = async (event) => {
       const submissions = subRes.Items || [];
 
       const userMap = {};
+      const hostLower = (contest.hostUsername || '').toLowerCase();
+      const ownerLower = (contest.ownerUsername || '').toLowerCase();
+
       (contest.participants || []).forEach(p => {
+        const pLower = (p.username || '').toLowerCase();
+        // Skip unjoined host/organizer placeholder with 0 score
+        if ((pLower === hostLower || pLower === ownerLower) && p.joinedAt === contest.createdAt) {
+          return;
+        }
+
         userMap[p.username] = {
           username: p.username,
           displayName: p.displayName || p.username,
