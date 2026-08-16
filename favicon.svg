@@ -1,12 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <defs>
-    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#a855f7" />
-      <stop offset="100%" stop-color="#6366f1" />
+    <linearGradient id="flameGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="50%" stop-color="#f97316" />
+      <stop offset="100%" stop-color="#ea580c" />
+    </linearGradient>
+    <linearGradient id="innerFlame" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="100%" stop-color="#fbbf24" />
     </linearGradient>
   </defs>
-  <rect width="100" height="100" rx="24" fill="url(#grad)" />
-  <path d="M30 35 H70 V48 C70 58 60 68 50 68 C40 68 30 58 30 48 Z" fill="#ffffff" />
-  <path d="M50 68 V78 M38 78 H62" stroke="#ffffff" stroke-width="6" stroke-linecap="round" />
-  <path d="M30 40 H22 C19 40 18 48 24 50 L30 51 M70 40 H78 C81 40 82 48 76 50 L70 51" stroke="#ffffff" stroke-width="5" stroke-linecap="round" fill="none" />
+  <!-- Background rounded squircle -->
+  <rect width="100" height="100" rx="22" fill="#131620" />
+  
+  <!-- Outer Flame -->
+  <path d="M50 14 C52 24 64 34 68 44 C74 58 66 76 50 84 C34 76 26 58 32 44 C34 39 38 35 41 31 C43 36 46 39 50 40 C46 32 46 22 50 14 Z" fill="url(#flameGrad)" />
+  
+  <!-- Inner Flame Accent -->
+  <path d="M50 48 C54 53 58 59 56 66 C54 72 46 76 42 70 C40 66 43 62 45 59 C48 55 49 51 50 48 Z" fill="url(#innerFlame)" />
 </svg>
