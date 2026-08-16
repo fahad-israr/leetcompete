@@ -144,7 +144,7 @@ async function sendVerificationEmail(recipientEmail, code, username, type = 'ver
           body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0b0d13; color: #f8fafc; margin: 0; padding: 20px; }
           .container { max-width: 520px; margin: 0 auto; background-color: #131620; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 32px 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
           .header { text-align: center; margin-bottom: 24px; }
-          .logo { display: inline-block; background: linear-gradient(135deg, #f59e0b, #d97706); width: 44px; height: 44px; border-radius: 10px; line-height: 44px; font-size: 22px; margin-bottom: 12px; }
+          .logo { display: inline-block; background: linear-gradient(135deg, #f59e0b, #d97706); width: 44px; height: 44px; border-radius: 10px; line-height: 44px; font-size: 18px; font-weight: 800; color: #ffffff; margin-bottom: 12px; font-family: monospace; }
           .title { font-size: 22px; font-weight: 800; color: #ffffff; margin: 0; }
           .subtitle { font-size: 13px; color: #94a3b8; margin-top: 4px; }
           .card { background-color: #1a1e2c; border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 24px; text-align: center; margin: 20px 0; }
@@ -155,7 +155,7 @@ async function sendVerificationEmail(recipientEmail, code, username, type = 'ver
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">🔥</div>
+            <div class="logo">&lt;/&gt;</div>
             <h1 class="title">${title}</h1>
             <div class="subtitle">Multiplayer LeetCode Arena & Zero-Repetition Bundles</div>
           </div>
@@ -163,7 +163,7 @@ async function sendVerificationEmail(recipientEmail, code, username, type = 'ver
             <p style="font-size: 15px; color: #e2e8f0; margin: 0 0 10px;">Hello <strong>@${username}</strong>,</p>
             <p style="font-size: 14px; color: #94a3b8; margin: 0 0 16px;">Please ${actionText}:</p>
             <div class="otp-code">${code}</div>
-            <p style="font-size: 13px; color: #94a3b8; margin: 12px 0 0;">⏱️ This verification code is valid for <strong>15 minutes</strong>.</p>
+            <p style="font-size: 13px; color: #94a3b8; margin: 12px 0 0;">This verification code is valid for <strong>15 minutes</strong>.</p>
           </div>
           <div class="footer">
             If you did not request this verification code, no action is needed.<br>

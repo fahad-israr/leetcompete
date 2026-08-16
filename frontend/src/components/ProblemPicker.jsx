@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Search, Link as LinkIcon, Plus, Trash2, ArrowUp, ArrowDown, ShieldCheck, CheckCircle2, RotateCw } from 'lucide-react';
+import { Sparkles, Search, Link as LinkIcon, Plus, Trash2, ArrowUp, ArrowDown, ShieldCheck, CheckCircle2, RotateCw, Eye, EyeOff } from 'lucide-react';
 import { api } from '../services/api';
 
 export default function ProblemPicker({
@@ -27,6 +27,10 @@ export default function ProblemPicker({
   const [urlInput, setUrlInput] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState('');
+
+  // Anti-Spoiler Blur / Reveal State (Default: hidden/blurred on auto-draw)
+  const [revealedSlugs, setRevealedSlugs] = useState(new Set());
+  const [allRevealed, setAllRevealed] = useState(false);
 
   // Initial Auto-Draw on Mount if no problems selected
   useEffect(() => {
@@ -65,6 +69,10 @@ export default function ProblemPicker({
   // Generate / Auto-Draw Round (Default: 1 Easy, 2 Medium, 1 Hard)
   const handleGenerateRound = async () => {
     setIsGenerating(true);
+    // Reset blur state so newly drawn problems are hidden/blurred by default
+    setRevealedSlugs(new Set());
+    setAllRevealed(false);
+
     try {
       if (seasonId) {
         // Draw from Season Remaining Pool
@@ -160,6 +168,30 @@ export default function ProblemPicker({
       }
       return p;
     }));
+  };
+
+  // Toggle individual question reveal
+  const toggleReveal = (slug) => {
+    setRevealedSlugs(prev => {
+      const next = new Set(prev);
+      if (next.has(slug)) {
+        next.delete(slug);
+      } else {
+        next.add(slug);
+      }
+      return next;
+    });
+  };
+
+  // Toggle all questions reveal
+  const toggleAllReveal = () => {
+    if (allRevealed) {
+      setAllRevealed(false);
+      setRevealedSlugs(new Set());
+    } else {
+      setAllRevealed(true);
+      setRevealedSlugs(new Set(selectedProblems.map(p => p.titleSlug)));
+    }
   };
 
   return (
@@ -369,22 +401,42 @@ export default function ProblemPicker({
         </div>
       )}
 
-      {/* Selected Problems Tray */}
+      {/* Selected Problems Tray with Anti-Spoiler Blur / Reveal */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <h4 style={{ fontSize: '0.85rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-            Selected Questions ({selectedProblems.length})
-          </h4>
-          {selectedProblems.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setSelectedProblems([])}
-              className="btn btn-danger btn-sm"
-              style={{ padding: '2px 8px', fontSize: '0.75rem', minHeight: '24px' }}
-            >
-              Clear All
-            </button>
-          )}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h4 style={{ fontSize: '0.85rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+              Selected Questions ({selectedProblems.length})
+            </h4>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+              (Anti-Spoiler Hidden)
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {selectedProblems.length > 0 && (
+              <button
+                type="button"
+                onClick={toggleAllReveal}
+                className="btn btn-secondary btn-sm"
+                style={{ padding: '3px 9px', fontSize: '0.75rem', minHeight: '26px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                title={allRevealed ? "Hide all questions" : "Reveal all questions"}
+              >
+                <span>{allRevealed ? '🙈 Hide' : '👁️ Reveal'}</span>
+              </button>
+            )}
+
+            {selectedProblems.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedProblems([])}
+                className="btn btn-danger btn-sm"
+                style={{ padding: '2px 8px', fontSize: '0.75rem', minHeight: '24px' }}
+              >
+                Clear All
+              </button>
+            )}
+          </div>
         </div>
 
         {selectedProblems.length === 0 ? (
@@ -401,103 +453,150 @@ export default function ProblemPicker({
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {selectedProblems.map((prob, idx) => (
-              <div
-                key={prob.titleSlug}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '10px 14px',
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: 'var(--radius-md)',
-                  gap: '10px'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-                  <span style={{
-                    background: 'var(--accent-primary-light)',
-                    color: 'var(--accent-primary)',
-                    fontWeight: '800',
-                    fontSize: '0.75rem',
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '6px',
+            {selectedProblems.map((prob, idx) => {
+              const isRevealed = allRevealed || revealedSlugs.has(prob.titleSlug);
+
+              return (
+                <div
+                  key={prob.titleSlug}
+                  style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}>
-                    Q{idx + 1}
-                  </span>
+                    justifyContent: 'space-between',
+                    padding: '10px 14px',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-md)',
+                    gap: '10px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                    <span style={{
+                      background: 'var(--accent-primary-light)',
+                      color: 'var(--accent-primary)',
+                      fontWeight: '800',
+                      fontSize: '0.75rem',
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      Q{idx + 1}
+                    </span>
 
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: '600', fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {prob.title}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                      <span className={`badge badge-${prob.difficulty.toLowerCase()}`}>
-                        {prob.difficulty}
-                      </span>
-                      {prob.frontendId && (
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-                          #{prob.frontendId}
+                    {/* Question Info with Blur / Reveal */}
+                    <div
+                      style={{ minWidth: 0, flex: 1, cursor: isRevealed ? 'default' : 'pointer' }}
+                      onClick={() => !isRevealed && toggleReveal(prob.titleSlug)}
+                      title={isRevealed ? "" : "Click to reveal question"}
+                    >
+                      <div style={{
+                        fontWeight: '600',
+                        fontSize: '0.875rem',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        filter: isRevealed ? 'none' : 'blur(5px)',
+                        userSelect: isRevealed ? 'auto' : 'none',
+                        transition: 'filter 0.2s ease, opacity 0.2s ease',
+                        opacity: isRevealed ? 1 : 0.65
+                      }}>
+                        {prob.title}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                        <span className={`badge badge-${prob.difficulty.toLowerCase()}`}>
+                          {prob.difficulty}
                         </span>
-                      )}
+                        {prob.frontendId && (
+                          <span style={{
+                            fontSize: '0.75rem',
+                            color: 'var(--text-dim)',
+                            fontFamily: 'var(--font-mono)',
+                            filter: isRevealed ? 'none' : 'blur(4px)',
+                            userSelect: isRevealed ? 'auto' : 'none'
+                          }}>
+                            #{prob.frontendId}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <input
-                      type="number"
-                      value={prob.points || (idx + 1) * 100}
-                      onChange={(e) => updatePoints(prob.titleSlug, e.target.value)}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                    {/* Eye toggle button */}
+                    <button
+                      type="button"
+                      onClick={() => toggleReveal(prob.titleSlug)}
                       style={{
-                        width: '54px',
-                        background: 'var(--bg-input)',
+                        background: isRevealed ? 'var(--bg-input)' : 'rgba(245, 158, 11, 0.1)',
                         border: '1px solid var(--border-color)',
                         borderRadius: '4px',
-                        padding: '4px',
-                        color: 'var(--text-main)',
-                        textAlign: 'center',
-                        fontSize: '0.75rem',
-                        fontWeight: '700'
+                        padding: '4px 6px',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        lineHeight: 1
                       }}
-                    />
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>pts</span>
+                      title={isRevealed ? "Hide question" : "Reveal question"}
+                    >
+                      <span>{isRevealed ? '🙈' : '👁️'}</span>
+                    </button>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <input
+                        type="number"
+                        value={prob.points || (idx + 1) * 100}
+                        onChange={(e) => updatePoints(prob.titleSlug, e.target.value)}
+                        style={{
+                          width: '54px',
+                          background: 'var(--bg-input)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '4px',
+                          padding: '4px',
+                          color: 'var(--text-main)',
+                          textAlign: 'center',
+                          fontSize: '0.75rem',
+                          fontWeight: '700'
+                        }}
+                      />
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>pts</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => moveProblem(idx, -1)}
+                      disabled={idx === 0}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: idx === 0 ? 'default' : 'pointer', padding: '2px' }}
+                    >
+                      <ArrowUp size={14} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => moveProblem(idx, 1)}
+                      disabled={idx === selectedProblems.length - 1}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: idx === selectedProblems.length - 1 ? 'default' : 'pointer', padding: '2px' }}
+                    >
+                      <ArrowDown size={14} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => removeProblem(prob.titleSlug)}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px' }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => moveProblem(idx, -1)}
-                    disabled={idx === 0}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: idx === 0 ? 'default' : 'pointer', padding: '2px' }}
-                  >
-                    <ArrowUp size={14} />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => moveProblem(idx, 1)}
-                    disabled={idx === selectedProblems.length - 1}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: idx === selectedProblems.length - 1 ? 'default' : 'pointer', padding: '2px' }}
-                  >
-                    <ArrowDown size={14} />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => removeProblem(prob.titleSlug)}
-                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px' }}
-                  >
-                    <Trash2 size={14} />
-                  </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
