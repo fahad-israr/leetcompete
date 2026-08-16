@@ -52,7 +52,7 @@ export default function Home({
       <div className="glass-panel hero-container" style={{
         padding: '40px 32px',
         marginBottom: '30px',
-        background: 'linear-gradient(135deg, rgba(23, 27, 38, 0.95), rgba(19, 22, 32, 0.98))',
+        background: 'var(--hero-bg)',
         position: 'relative',
         overflow: 'hidden'
       }}>
@@ -62,14 +62,14 @@ export default function Home({
           right: '-8%',
           width: '400px',
           height: '400px',
-          background: 'radial-gradient(circle, rgba(245, 158, 11, 0.14) 0%, rgba(249, 115, 22, 0.04) 50%, rgba(0,0,0,0) 70%)',
+          background: 'radial-gradient(circle, var(--border-glow) 0%, rgba(245, 158, 11, 0.02) 50%, rgba(0,0,0,0) 70%)',
           pointerEvents: 'none'
         }} />
 
         <div style={{ maxWidth: '800px', position: 'relative', zIndex: 2 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '5px 12px', borderRadius: '30px', marginBottom: '14px' }}>
-            <Sparkles size={14} color="#fbbf24" />
-            <span style={{ fontSize: '0.775rem', fontWeight: '700', color: '#fef3c7', letterSpacing: '0.04em' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'var(--accent-primary-light)', border: '1px solid var(--border-glow)', padding: '5px 12px', borderRadius: '30px', marginBottom: '14px' }}>
+            <Sparkles size={14} color="var(--accent-primary)" />
+            <span style={{ fontSize: '0.775rem', fontWeight: '700', color: 'var(--accent-primary)', letterSpacing: '0.04em' }}>
               MULTIPLAYER LEETCODE ARENA & ZERO-REPETITION LEAGUES
             </span>
           </div>
@@ -80,9 +80,7 @@ export default function Home({
             lineHeight: 1.2,
             letterSpacing: '-0.03em',
             marginBottom: '14px',
-            background: 'linear-gradient(to right, #ffffff, #e2e8f0, #fbbf24)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent'
+            color: 'var(--text-main)'
           }}>
             Compete, Practice, and Master Problem Bundles Together
           </h1>
@@ -105,7 +103,7 @@ export default function Home({
                   border: '1px solid var(--border-color)',
                   borderRadius: 'var(--radius-md)',
                   padding: '10px 14px',
-                  color: '#fff',
+                  color: 'var(--text-main)',
                   fontFamily: 'var(--font-mono)',
                   fontSize: '0.95rem',
                   letterSpacing: '0.08em',

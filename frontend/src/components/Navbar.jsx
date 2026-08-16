@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Flame, PlusCircle, Compass, Layers, User, Check, Edit2, ShieldCheck, Lock } from 'lucide-react';
+import { Flame, PlusCircle, Compass, Layers, User, Check, Edit2, ShieldCheck, Lock, Sun, Moon } from 'lucide-react';
 
 export default function Navbar({
   activeView,
@@ -12,13 +12,27 @@ export default function Navbar({
   const [isEditingUser, setIsEditingUser] = useState(false);
   const [inputVal, setInputVal] = useState('');
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
+  const [theme, setTheme] = useState('light'); // Default to light theme
 
   useEffect(() => {
-    const saved = localStorage.getItem('leetcompete_username') || '';
-    setUsername(saved);
-    setInputVal(saved);
+    // 1. Initialize Theme (Default = light)
+    const savedTheme = localStorage.getItem('leetcompete_theme') || 'light';
+    setTheme(savedTheme);
+    document.documentElement.setAttribute('data-theme', savedTheme);
+
+    // 2. Initialize Username & Admin state
+    const savedUser = localStorage.getItem('leetcompete_username') || '';
+    setUsername(savedUser);
+    setInputVal(savedUser);
     checkAdmin();
   }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(nextTheme);
+    localStorage.setItem('leetcompete_theme', nextTheme);
+    document.documentElement.setAttribute('data-theme', nextTheme);
+  };
 
   const checkAdmin = () => {
     const savedPass = sessionStorage.getItem('leetcompete_admin_passcode') || localStorage.getItem('leetcompete_admin_passcode');
@@ -39,7 +53,7 @@ export default function Navbar({
     <nav
       className="navbar-container"
       style={{
-        background: 'rgba(19, 22, 32, 0.95)',
+        background: 'var(--navbar-bg)',
         backdropFilter: 'blur(16px)',
         borderBottom: '1px solid var(--border-color)',
         padding: '0 20px',
@@ -49,7 +63,8 @@ export default function Navbar({
         justifyContent: 'space-between',
         position: 'sticky',
         top: 0,
-        zIndex: 100
+        zIndex: 100,
+        transition: 'background 0.2s ease, border-color 0.2s ease'
       }}
     >
       {/* Brand & Logo */}
@@ -60,14 +75,14 @@ export default function Navbar({
         >
           {/* Flame Icon Logo */}
           <div style={{
-            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+            background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover))',
             width: '36px',
             height: '36px',
             borderRadius: '9px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 0 14px rgba(245, 158, 11, 0.35)'
+            boxShadow: '0 0 14px var(--accent-orange-glow)'
           }}>
             <Flame size={20} color="#ffffff" />
           </div>
@@ -75,9 +90,7 @@ export default function Navbar({
             fontSize: '1.35rem',
             fontWeight: '800',
             letterSpacing: '-0.02em',
-            background: 'linear-gradient(to right, #ffffff, #f1f5f9, #fbbf24)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent'
+            color: 'var(--text-main)'
           }}>
             LeetCompete
           </span>
@@ -105,7 +118,23 @@ export default function Navbar({
       </div>
 
       {/* Right Controls */}
-      <div className="navbar-right" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div className="navbar-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {/* Light / Dark Mode Toggle Button */}
+        <button
+          onClick={toggleTheme}
+          className="btn btn-secondary btn-sm"
+          style={{
+            padding: '6px 10px',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--text-main)'
+          }}
+          title={theme === 'light' ? 'Switch to Dark Theme' : 'Switch to Light Theme'}
+          aria-label="Toggle theme"
+        >
+          {theme === 'light' ? <Moon size={16} /> : <Sun size={16} color="#fbbf24" />}
+          <span className="hide-on-mobile">{theme === 'light' ? 'Dark' : 'Light'}</span>
+        </button>
+
         {/* Admin Mode Badge / Button */}
         <button
           onClick={onOpenAdminModal}
@@ -124,9 +153,8 @@ export default function Navbar({
         <button
           onClick={onOpenCreateSeason}
           className="btn btn-secondary btn-sm hide-on-mobile"
-          style={{ borderColor: 'rgba(245, 158, 11, 0.35)' }}
         >
-          <Layers size={14} color="#fbbf24" />
+          <Layers size={14} color="var(--accent-primary)" />
           <span>New Season</span>
         </button>
 
@@ -163,9 +191,9 @@ export default function Navbar({
                   border: '1px solid var(--accent-primary)',
                   borderRadius: '4px',
                   padding: '2px 6px',
-                  color: '#fff',
+                  color: 'var(--text-main)',
                   fontSize: '0.8rem',
-                  width: '110px',
+                  width: '100px',
                   outline: 'none'
                 }}
               />
