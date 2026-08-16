@@ -1,4 +1,4 @@
-const { getQuestionDetails } = require('./leetcode');
+const { getQuestionDetails, getQuestionsFromList } = require('./leetcode');
 
 // Curated Top Interview & Essential Standard Problem Catalog (150+ Standard LeetCode Problems)
 const PROBLEM_CATALOG = [
@@ -266,6 +266,48 @@ function generateRandomRoundFromPool({
     totalPoolCount: pool.length,
     usedCount: usedSlugs.length + selected.length
   };
+
+async function resolveListOrUrls(input) {
+  if (!input || !input.trim()) return [];
+  const text = input.trim();
+
+  // Check if input is a LeetCode problem-list link
+  const listMatch = text.match(/leetcode\.com\/problem-list\/([a-zA-Z0-9_-]+)/);
+  if (listMatch) {
+    const listSlug = listMatch[1];
+    const listQuestions = await getQuestionsFromList(listSlug);
+    if (listQuestions && listQuestions.length > 0) {
+      return listQuestions;
+    }
+  }
+
+  // Otherwise, split by newline/comma and resolve individual problems
+  const items = text.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+  const resolved = [];
+  const seenSlugs = new Set();
+
+  for (const item of items) {
+    // Check if line itself is a list URL
+    const itemMatch = item.match(/leetcode\.com\/problem-list\/([a-zA-Z0-9_-]+)/);
+    if (itemMatch) {
+      const listQuestions = await getQuestionsFromList(itemMatch[1]);
+      listQuestions.forEach(q => {
+        if (!seenSlugs.has(q.titleSlug.toLowerCase())) {
+          seenSlugs.add(q.titleSlug.toLowerCase());
+          resolved.push(q);
+        }
+      });
+      continue;
+    }
+
+    const prob = await resolveProblem(item);
+    if (prob && !seenSlugs.has(prob.titleSlug.toLowerCase())) {
+      seenSlugs.add(prob.titleSlug.toLowerCase());
+      resolved.push(prob);
+    }
+  }
+
+  return resolved;
 }
 
 module.exports = {
@@ -273,5 +315,6 @@ module.exports = {
   PRESET_LISTS,
   searchCatalog,
   resolveProblem,
+  resolveListOrUrls,
   generateRandomRoundFromPool
 };

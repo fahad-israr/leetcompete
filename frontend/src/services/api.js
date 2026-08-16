@@ -47,6 +47,31 @@ export const api = {
     return data.season;
   },
 
+  async archiveSeason(id) {
+    const res = await fetch(`${API_BASE}/api/seasons/${id}/archive`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    return await handleResponse(res);
+  },
+
+  async unarchiveSeason(id) {
+    const res = await fetch(`${API_BASE}/api/seasons/${id}/unarchive`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    return await handleResponse(res);
+  },
+
+  async importProblemList(listUrlOrInput) {
+    const res = await fetch(`${API_BASE}/api/problems/import-list`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ input: listUrlOrInput })
+    });
+    return await handleResponse(res);
+  },
+
   async generateSeasonRound(seasonId, params) {
     const res = await fetch(`${API_BASE}/api/seasons/${seasonId}/generate-round`, {
       method: 'POST',

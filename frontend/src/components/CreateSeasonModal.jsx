@@ -26,22 +26,11 @@ export default function CreateSeasonModal({ isOpen, onClose, onSeasonCreated }) 
       let pool = undefined;
 
       if (poolType === 'custom-urls' && bulkUrls.trim()) {
-        const inputs = bulkUrls.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
-        const resolved = [];
-        for (const input of inputs) {
-          try {
-            const p = await api.resolveProblem(input);
-            if (p && !resolved.some(r => r.titleSlug === p.titleSlug)) {
-              resolved.push(p);
-            }
-          } catch (e) {
-            console.warn(`Could not resolve problem: ${input}`);
-          }
-        }
-        if (resolved.length > 0) {
-          pool = resolved;
+        const importRes = await api.importProblemList(bulkUrls.trim());
+        if (importRes && importRes.problems && importRes.problems.length > 0) {
+          pool = importRes.problems;
         } else {
-          throw new Error('No valid problems could be resolved from the provided URLs or list link.');
+          throw new Error('No valid problems could be imported from the provided URL or list link.');
         }
       }
 

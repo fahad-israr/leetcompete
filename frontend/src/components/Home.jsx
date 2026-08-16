@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Plus, Compass, Sparkles, Users, Clock, ArrowRight, ShieldCheck, Layers, Lock, Globe, Code2 } from 'lucide-react';
+import { Flame, Trophy, Plus, Compass, Sparkles, Users, Clock, ArrowRight, ShieldCheck, Layers, Lock, Globe, Code2 } from 'lucide-react';
 import { api } from '../services/api';
 
 export default function Home({
@@ -52,7 +52,7 @@ export default function Home({
       <div className="glass-panel" style={{
         padding: '48px 36px',
         marginBottom: '36px',
-        background: 'linear-gradient(135deg, rgba(17, 24, 39, 0.95), rgba(15, 23, 42, 0.98))',
+        background: 'linear-gradient(135deg, rgba(24, 24, 28, 0.95), rgba(18, 18, 21, 0.98))',
         position: 'relative',
         overflow: 'hidden'
       }}>
@@ -62,14 +62,14 @@ export default function Home({
           right: '-5%',
           width: '450px',
           height: '450px',
-          background: 'radial-gradient(circle, rgba(37, 99, 235, 0.2) 0%, rgba(6, 182, 212, 0.08) 50%, rgba(0,0,0,0) 70%)',
+          background: 'radial-gradient(circle, rgba(249, 115, 22, 0.18) 0%, rgba(245, 158, 11, 0.06) 50%, rgba(0,0,0,0) 70%)',
           pointerEvents: 'none'
         }} />
 
         <div style={{ maxWidth: '820px', position: 'relative', zIndex: 2 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.35)', padding: '6px 14px', borderRadius: '30px', marginBottom: '16px' }}>
-            <Sparkles size={15} color="#60a5fa" />
-            <span style={{ fontSize: '0.825rem', fontWeight: '700', color: '#93c5fd', letterSpacing: '0.04em' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(249, 115, 22, 0.15)', border: '1px solid rgba(249, 115, 22, 0.35)', padding: '6px 14px', borderRadius: '30px', marginBottom: '16px' }}>
+            <Sparkles size={15} color="#fb923c" />
+            <span style={{ fontSize: '0.825rem', fontWeight: '700', color: '#fed7aa', letterSpacing: '0.04em' }}>
               MULTIPLAYER LEETCODE ARENA & ZERO-REPETITION LEAGUES
             </span>
           </div>
@@ -80,7 +80,7 @@ export default function Home({
             lineHeight: 1.15,
             letterSpacing: '-0.03em',
             marginBottom: '16px',
-            background: 'linear-gradient(to right, #ffffff, #cbd5e1, #93c5fd)',
+            background: 'linear-gradient(to right, #ffffff, #e4e4e7, #fb923c)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent'
           }}>
@@ -122,8 +122,8 @@ export default function Home({
               <Plus size={18} /> Host Contest
             </button>
 
-            <button onClick={onOpenCreateSeason} className="btn btn-secondary btn-lg" style={{ borderColor: 'rgba(59, 130, 246, 0.4)' }}>
-              <Layers size={18} color="#60a5fa" /> New Season League
+            <button onClick={onOpenCreateSeason} className="btn btn-secondary btn-lg" style={{ borderColor: 'rgba(249, 115, 22, 0.4)' }}>
+              <Layers size={18} color="#fb923c" /> New Season League
             </button>
           </div>
         </div>
@@ -175,7 +175,7 @@ export default function Home({
 
         <div className="card">
           <div style={{
-            background: 'rgba(6, 182, 212, 0.15)',
+            background: 'rgba(245, 158, 11, 0.15)',
             width: '42px',
             height: '42px',
             borderRadius: '10px',
@@ -184,7 +184,7 @@ export default function Home({
             justifyContent: 'center',
             marginBottom: '14px'
           }}>
-            <Trophy size={22} color="var(--accent-cyan)" />
+            <Flame size={22} color="var(--accent-gold)" />
           </div>
           <h3 style={{ fontSize: '1.15rem', fontWeight: '700', marginBottom: '6px' }}>
             Live Submission Verifier
@@ -255,7 +255,7 @@ export default function Home({
                 >
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '700', fontSize: '0.9rem', color: '#60a5fa' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '700', fontSize: '0.9rem', color: '#fb923c' }}>
                         {c.code}
                       </span>
                       <span className={`badge badge-${c.status === 'IN_PROGRESS' ? 'easy' : c.status === 'FINISHED' ? 'hard' : 'medium'}`}>
@@ -266,12 +266,12 @@ export default function Home({
                           <Lock size={11} /> Private
                         </span>
                       ) : (
-                        <span className="badge badge-cyan">
+                        <span className="badge badge-gold">
                           Public
                         </span>
                       )}
                       {c.seasonTitle && (
-                        <span className="badge badge-blue">
+                        <span className="badge badge-orange">
                           {c.seasonTitle}
                         </span>
                       )}
@@ -305,7 +305,7 @@ export default function Home({
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <h2 style={{ fontSize: '1.35rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Layers size={20} color="var(--accent-cyan)" />
+              <Layers size={20} color="var(--accent-primary)" />
               Season Problem Bundles
             </h2>
             <button onClick={onNavigateSeasons} className="btn btn-secondary btn-sm">
@@ -319,7 +319,7 @@ export default function Home({
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {seasons.slice(0, 4).map((s) => {
+              {seasons.filter(s => !s.isArchived).slice(0, 4).map((s) => {
                 const coverage = s.totalPoolCount > 0 ? Math.round((s.usedProblemCount / s.totalPoolCount) * 100) : 0;
                 return (
                   <div
@@ -330,7 +330,7 @@ export default function Home({
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                       <h3 style={{ fontSize: '1.05rem', fontWeight: '700' }}>{s.title}</h3>
-                      <span className="badge badge-cyan">{coverage}% Covered</span>
+                      <span className="badge badge-orange">{coverage}% Covered</span>
                     </div>
                     <p style={{ fontSize: '0.825rem', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.4 }}>
                       {s.description || 'Non-repeating problem curriculum.'}

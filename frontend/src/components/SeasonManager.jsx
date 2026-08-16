@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, Plus, ShieldCheck, ChevronRight, ArrowLeft, ExternalLink, Calendar, CheckCircle2, Circle } from 'lucide-react';
+import { Layers, Plus, ShieldCheck, ChevronRight, ArrowLeft, ExternalLink, Calendar, CheckCircle2, Circle, Archive, RotateCcw } from 'lucide-react';
 import { api } from '../services/api';
 
 export default function SeasonManager({
@@ -13,7 +13,9 @@ export default function SeasonManager({
   const [activeTab, setActiveTab] = useState('pool'); // 'pool' | 'rounds'
   const [poolFilter, setPoolFilter] = useState('all'); // 'all' | 'remaining' | 'used'
   const [poolDiffFilter, setPoolDiffFilter] = useState('all'); // 'all' | 'Easy' | 'Medium' | 'Hard'
+  const [seasonFilter, setSeasonFilter] = useState('active'); // 'active' | 'archived' | 'all'
   const [isLoading, setIsLoading] = useState(true);
+  const [isActionLoading, setIsActionLoading] = useState(false);
 
   useEffect(() => {
     loadSeasons();
@@ -51,6 +53,35 @@ export default function SeasonManager({
     }
   };
 
+  const handleToggleArchive = async (seasonId, currentArchived) => {
+    const actionName = currentArchived ? 'restore' : 'archive';
+    if (!window.confirm(`Are you sure you want to ${actionName} this season?`)) return;
+
+    setIsActionLoading(true);
+    try {
+      if (currentArchived) {
+        await api.unarchiveSeason(seasonId);
+      } else {
+        await api.archiveSeason(seasonId);
+      }
+      await loadSeasons();
+      if (selectedSeasonId) {
+        await loadSeasonDetail(selectedSeasonId);
+      }
+    } catch (err) {
+      alert(`Failed to ${actionName} season: ` + err.message);
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  // Filtered seasons list
+  const filteredSeasons = seasons.filter(s => {
+    if (seasonFilter === 'active') return !s.isArchived;
+    if (seasonFilter === 'archived') return !!s.isArchived;
+    return true;
+  });
+
   // View: Season Detail
   if (selectedSeasonId && seasonDetail) {
     const total = seasonDetail.totalPoolCount || 0;
@@ -58,6 +89,7 @@ export default function SeasonManager({
     const remaining = seasonDetail.remainingProblemCount || 0;
     const coveragePercent = total > 0 ? Math.round((used / total) * 100) : 0;
     const usedMap = seasonDetail.usedProblems || {};
+    const isArchived = !!seasonDetail.isArchived;
 
     const filteredPool = (seasonDetail.pool || []).filter(p => {
       const isUsed = !!usedMap[p.titleSlug?.toLowerCase()];
@@ -75,16 +107,60 @@ export default function SeasonManager({
             <ArrowLeft size={16} /> All Seasons
           </button>
 
-          <button
-            onClick={() => onOpenCreateContestForSeason(seasonDetail.id)}
-            className="btn btn-primary btn-sm"
-          >
-            <Plus size={16} /> Launch Next Round
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              onClick={() => handleToggleArchive(seasonDetail.id, isArchived)}
+              disabled={isActionLoading}
+              className="btn btn-secondary btn-sm"
+              style={{
+                borderColor: isArchived ? 'var(--color-easy)' : 'var(--border-color)',
+                color: isArchived ? 'var(--color-easy)' : 'var(--text-muted)'
+              }}
+            >
+              {isArchived ? (
+                <>
+                  <RotateCcw size={15} /> Restore Season
+                </>
+              ) : (
+                <>
+                  <Archive size={15} /> Archive Season
+                </>
+              )}
+            </button>
+
+            {!isArchived && (
+              <button
+                onClick={() => onOpenCreateContestForSeason(seasonDetail.id)}
+                className="btn btn-primary btn-sm"
+              >
+                <Plus size={16} /> Launch Next Round
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Season Hero Banner */}
-        <div className="glass-panel" style={{ padding: '28px', marginBottom: '24px' }}>
+        <div className="glass-panel" style={{ padding: '28px', marginBottom: '24px', position: 'relative' }}>
+          {isArchived && (
+            <div style={{
+              position: 'absolute',
+              top: '16px',
+              right: '16px',
+              background: 'rgba(239, 68, 68, 0.15)',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              color: '#f87171',
+              padding: '4px 12px',
+              borderRadius: '20px',
+              fontSize: '0.75rem',
+              fontWeight: '700',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              <Archive size={12} /> ARCHIVED
+            </div>
+          )}
+
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
@@ -130,17 +206,17 @@ export default function SeasonManager({
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
                 Next Up
               </div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.4rem', fontWeight: '800', color: '#60a5fa', marginBottom: '12px' }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.4rem', fontWeight: '800', color: 'var(--accent-primary)', marginBottom: '12px' }}>
                 Round #{(seasonDetail.contestIds?.length || 0) + 1}
               </div>
               <button
                 onClick={() => onOpenCreateContestForSeason(seasonDetail.id)}
-                disabled={remaining === 0}
+                disabled={remaining === 0 || isArchived}
                 className="btn btn-primary btn-sm"
                 style={{ width: '100%' }}
               >
                 <Plus size={14} />
-                {remaining > 0 ? `Draw Unused (${remaining} Left)` : 'Season Complete!'}
+                {isArchived ? 'Season Archived' : remaining > 0 ? `Draw Unused (${remaining} Left)` : 'Season Complete!'}
               </button>
             </div>
           </div>
@@ -326,7 +402,7 @@ export default function SeasonManager({
   // View: All Seasons List
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ fontSize: '1.8rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '4px' }}>
             Season Problem Bundles & Leagues
@@ -336,14 +412,38 @@ export default function SeasonManager({
           </p>
         </div>
 
-        <button onClick={onOpenCreateSeason} className="btn btn-primary">
-          <Plus size={16} /> Create Season
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Season Filter (Active vs Archived) */}
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button
+              onClick={() => setSeasonFilter('active')}
+              className={`btn btn-sm ${seasonFilter === 'active' ? 'btn-primary' : 'btn-secondary'}`}
+            >
+              Active
+            </button>
+            <button
+              onClick={() => setSeasonFilter('archived')}
+              className={`btn btn-sm ${seasonFilter === 'archived' ? 'btn-primary' : 'btn-secondary'}`}
+            >
+              Archived
+            </button>
+            <button
+              onClick={() => setSeasonFilter('all')}
+              className={`btn btn-sm ${seasonFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+            >
+              All
+            </button>
+          </div>
+
+          <button onClick={onOpenCreateSeason} className="btn btn-primary">
+            <Plus size={16} /> Create Season
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
         <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-dim)' }}>Loading seasons...</div>
-      ) : seasons.length === 0 ? (
+      ) : filteredSeasons.length === 0 ? (
         <div className="glass-panel" style={{ textAlign: 'center', padding: '60px 20px' }}>
           <div style={{
             background: 'var(--accent-primary-light)',
@@ -357,28 +457,47 @@ export default function SeasonManager({
           }}>
             <Layers size={30} color="var(--accent-primary)" />
           </div>
-          <h3 style={{ fontSize: '1.3rem', fontWeight: '700', marginBottom: '8px' }}>No Seasons Created Yet</h3>
+          <h3 style={{ fontSize: '1.3rem', fontWeight: '700', marginBottom: '8px' }}>
+            {seasonFilter === 'archived' ? 'No Archived Seasons' : 'No Seasons Found'}
+          </h3>
           <p style={{ color: 'var(--text-muted)', maxWidth: '480px', margin: '0 auto 20px' }}>
-            Create a season with a custom problem bundle or list link to automatically partition problems into sequential, non-repeating rounds!
+            {seasonFilter === 'archived'
+              ? 'Archived seasons will appear here when you archive completed leagues.'
+              : 'Create a season with a custom problem bundle or list link to automatically partition problems into sequential, non-repeating rounds!'}
           </p>
-          <button onClick={onOpenCreateSeason} className="btn btn-primary">
-            <Plus size={16} /> Create First Season
-          </button>
+          {seasonFilter !== 'archived' && (
+            <button onClick={onOpenCreateSeason} className="btn btn-primary">
+              <Plus size={16} /> Create First Season
+            </button>
+          )}
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
-          {seasons.map(s => {
+          {filteredSeasons.map(s => {
             const coverage = s.totalPoolCount > 0 ? Math.round((s.usedProblemCount / s.totalPoolCount) * 100) : 0;
             return (
               <div
                 key={s.id}
                 className="card"
-                style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', cursor: 'pointer' }}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  opacity: s.isArchived ? 0.7 : 1
+                }}
                 onClick={() => setSelectedSeasonId(s.id)}
               >
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <span className="badge badge-blue">Season League</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span className="badge badge-blue">Season League</span>
+                      {s.isArchived && (
+                        <span className="badge badge-hard" style={{ fontSize: '0.7rem' }}>
+                          <Archive size={11} /> Archived
+                        </span>
+                      )}
+                    </div>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
                       {new Date((s.createdAt || 0) * 1000).toLocaleDateString()}
                     </span>
@@ -403,10 +522,23 @@ export default function SeasonManager({
                   </div>
                 </div>
 
-                <button className="btn btn-secondary btn-sm" style={{ width: '100%', justifyContent: 'space-between' }}>
-                  <span>View Curriculum & Rounds</span>
-                  <ChevronRight size={14} />
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="btn btn-secondary btn-sm" style={{ flex: 1, justifyContent: 'space-between' }}>
+                    <span>View Curriculum & Rounds</span>
+                    <ChevronRight size={14} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleArchive(s.id, s.isArchived);
+                    }}
+                    className="btn btn-secondary btn-sm"
+                    title={s.isArchived ? 'Restore Season' : 'Archive Season'}
+                    style={{ padding: '6px 10px' }}
+                  >
+                    {s.isArchived ? <RotateCcw size={14} /> : <Archive size={14} />}
+                  </button>
+                </div>
               </div>
             );
           })}

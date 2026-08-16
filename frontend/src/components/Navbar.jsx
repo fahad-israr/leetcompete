@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, PlusCircle, Compass, Layers, User, Check, Edit2, ShieldCheck, Lock } from 'lucide-react';
+import { Flame, PlusCircle, Compass, Layers, User, Check, Edit2, ShieldCheck, Lock } from 'lucide-react';
 
 export default function Navbar({
   activeView,
@@ -37,7 +37,7 @@ export default function Navbar({
 
   return (
     <nav style={{
-      background: 'rgba(15, 23, 42, 0.95)',
+      background: 'rgba(18, 18, 21, 0.95)',
       backdropFilter: 'blur(16px)',
       borderBottom: '1px solid var(--border-color)',
       padding: '0 24px',
@@ -49,29 +49,30 @@ export default function Navbar({
       top: 0,
       zIndex: 100
     }}>
-      {/* Brand */}
+      {/* Brand & New Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
         <div
           onClick={() => setActiveView('home')}
           style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
         >
+          {/* Flame Icon Logo in Orange & Black */}
           <div style={{
-            background: 'linear-gradient(135deg, #2563eb, #06b6d4)',
+            background: 'linear-gradient(135deg, #f97316, #ea580c)',
             width: '38px',
             height: '38px',
             borderRadius: '10px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 0 16px rgba(37, 99, 235, 0.45)'
+            boxShadow: '0 0 18px rgba(249, 115, 22, 0.45)'
           }}>
-            <Trophy size={20} color="#fff" />
+            <Flame size={22} color="#ffffff" />
           </div>
           <span style={{
             fontSize: '1.45rem',
             fontWeight: '800',
             letterSpacing: '-0.02em',
-            background: 'linear-gradient(to right, #ffffff, #93c5fd, #38bdf8)',
+            background: 'linear-gradient(to right, #ffffff, #fed7aa, #fb923c)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent'
           }}>
@@ -113,15 +114,15 @@ export default function Navbar({
           title={isAdminUnlocked ? 'Admin Mode Active' : 'Unlock Admin Mode'}
         >
           {isAdminUnlocked ? <ShieldCheck size={15} color="var(--color-easy)" /> : <Lock size={15} />}
-          <span>{isAdminUnlocked ? 'Admin' : 'Admin Login'}</span>
+          <span>{isAdminUnlocked ? 'Admin Mode' : 'Admin Login'}</span>
         </button>
 
         <button
           onClick={onOpenCreateSeason}
           className="btn btn-secondary btn-sm"
-          style={{ borderColor: 'rgba(59, 130, 246, 0.4)' }}
+          style={{ borderColor: 'rgba(249, 115, 22, 0.4)' }}
         >
-          <Layers size={15} color="#60a5fa" />
+          <Layers size={15} color="#fb923c" />
           New Season
         </button>
 

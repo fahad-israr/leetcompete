@@ -15,6 +15,7 @@ const {
   PRESET_LISTS,
   searchCatalog,
   resolveProblem,
+  resolveListOrUrls,
   generateRandomRoundFromPool
 } = require('./problemBank');
 
@@ -119,6 +120,7 @@ exports.handler = async (event) => {
       const result = await docClient.send(new ScanCommand({ TableName: SEASONS_TABLE }));
       const seasons = (result.Items || []).map(s => ({
         ...s,
+        isArchived: !!s.isArchived,
         totalPoolCount: s.pool?.length || 0,
         usedProblemCount: Object.keys(s.usedProblems || {}).length,
         remainingProblemCount: (s.pool?.length || 0) - Object.keys(s.usedProblems || {}).length
@@ -140,6 +142,7 @@ exports.handler = async (event) => {
         pool: pool && pool.length > 0 ? pool : PROBLEM_CATALOG,
         usedProblems: {}, // map of slug -> { round, contestCode, usedAt }
         contestIds: [],
+        isArchived: false,
         createdAt: Math.floor(Date.now() / 1000)
       };
 
@@ -149,6 +152,40 @@ exports.handler = async (event) => {
       }));
 
       return jsonResponse(200, { success: true, season: newSeason });
+    }
+
+    // Archive Season
+    const seasonArchiveMatch = path.match(/^\/api\/seasons\/([a-zA-Z0-9_-]+)\/archive$/);
+    if (seasonArchiveMatch && httpMethod === 'POST') {
+      const seasonId = seasonArchiveMatch[1];
+      await docClient.send(new UpdateCommand({
+        TableName: SEASONS_TABLE,
+        Key: { id: seasonId },
+        UpdateExpression: 'SET isArchived = :a',
+        ExpressionAttributeValues: { ':a': true }
+      }));
+      return jsonResponse(200, { success: true, message: 'Season archived successfully' });
+    }
+
+    // Unarchive / Restore Season
+    const seasonUnarchiveMatch = path.match(/^\/api\/seasons\/([a-zA-Z0-9_-]+)\/unarchive$/);
+    if (seasonUnarchiveMatch && httpMethod === 'POST') {
+      const seasonId = seasonUnarchiveMatch[1];
+      await docClient.send(new UpdateCommand({
+        TableName: SEASONS_TABLE,
+        Key: { id: seasonId },
+        UpdateExpression: 'SET isArchived = :a',
+        ExpressionAttributeValues: { ':a': false }
+      }));
+      return jsonResponse(200, { success: true, message: 'Season restored successfully' });
+    }
+
+    // Import Problem List Endpoint
+    if (path === '/api/problems/import-list' && httpMethod === 'POST') {
+      const { input, listUrl } = body;
+      const target = listUrl || input;
+      const questions = await resolveListOrUrls(target);
+      return jsonResponse(200, { success: true, count: questions.length, problems: questions });
     }
 
     // Season Detail & Rounds
