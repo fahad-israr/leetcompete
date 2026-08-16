@@ -3,14 +3,19 @@ const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001').repla
 function getAuthHeaders() {
   const headers = { 'Content-Type': 'application/json' };
   
-  const adminPasscode = sessionStorage.getItem('leetcompete_admin_passcode') || localStorage.getItem('leetcompete_admin_passcode');
-  if (adminPasscode) {
-    headers['x-admin-passcode'] = adminPasscode;
+  const token = localStorage.getItem('leetcompete_auth_token');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const gToken = sessionStorage.getItem('leetcompete_gtoken');
-  if (gToken) {
-    headers['Authorization'] = `Bearer ${gToken}`;
+  const userJson = localStorage.getItem('leetcompete_user');
+  if (userJson) {
+    try {
+      const user = JSON.parse(userJson);
+      if (user.username) {
+        headers['x-username'] = user.username;
+      }
+    } catch (e) {}
   }
 
   return headers;
@@ -25,6 +30,64 @@ async function handleResponse(res) {
 }
 
 export const api = {
+  // === AUTHENTICATION ===
+  async register(username, password, displayName = '') {
+    const res = await fetch(`${API_BASE}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, displayName })
+    });
+    const data = await handleResponse(res);
+    if (data.token && data.user) {
+      localStorage.setItem('leetcompete_auth_token', data.token);
+      localStorage.setItem('leetcompete_user', JSON.stringify(data.user));
+      localStorage.setItem('leetcompete_username', data.user.username);
+    }
+    return data;
+  },
+
+  async login(username, password) {
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await handleResponse(res);
+    if (data.token && data.user) {
+      localStorage.setItem('leetcompete_auth_token', data.token);
+      localStorage.setItem('leetcompete_user', JSON.stringify(data.user));
+      localStorage.setItem('leetcompete_username', data.user.username);
+    }
+    return data;
+  },
+
+  async getMe() {
+    const token = localStorage.getItem('leetcompete_auth_token');
+    if (!token) return null;
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/me`, { headers: getAuthHeaders() });
+      const data = await handleResponse(res);
+      return data.user;
+    } catch (e) {
+      this.logout();
+      return null;
+    }
+  },
+
+  logout() {
+    localStorage.removeItem('leetcompete_auth_token');
+    localStorage.removeItem('leetcompete_user');
+  },
+
+  getCurrentUser() {
+    try {
+      const raw = localStorage.getItem('leetcompete_user');
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  },
+
   // === SEASONS ===
   async getSeasons() {
     const res = await fetch(`${API_BASE}/api/seasons`, { headers: getAuthHeaders() });

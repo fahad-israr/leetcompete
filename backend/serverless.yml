@@ -8,10 +8,12 @@ provider:
   region: ${env:AWS_REGION, 'us-east-1'}
   stage: ${opt:stage, 'dev'}
   environment:
+    USERS_TABLE: ${self:service}-users-${self:provider.stage}
     SEASONS_TABLE: ${self:service}-seasons-${self:provider.stage}
     CONTESTS_TABLE: ${self:service}-contests-${self:provider.stage}
     SUBMISSIONS_TABLE: ${self:service}-submissions-${self:provider.stage}
     MESSAGES_TABLE: ${self:service}-messages-${self:provider.stage}
+    JWT_SECRET: ${env:JWT_SECRET, 'leetcompete_jwt_secret_key_2026_super_secure'}
     ADMIN_PASSCODE: ${env:ADMIN_PASSCODE, 'leetcompete_admin_2026'}
     ALLOWED_ADMIN_EMAILS: ${env:ALLOWED_ADMIN_EMAILS, 'fahad00cms@gmail.com'}
   iam:
@@ -26,6 +28,7 @@ provider:
             - dynamodb:UpdateItem
             - dynamodb:DeleteItem
           Resource:
+            - !GetAtt UsersTable.Arn
             - !GetAtt SeasonsTable.Arn
             - !GetAtt ContestsTable.Arn
             - !GetAtt SubmissionsTable.Arn
@@ -58,6 +61,18 @@ functions:
 
 resources:
   Resources:
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.USERS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: username
+            AttributeType: S
+        KeySchema:
+          - AttributeName: username
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
     SeasonsTable:
       Type: AWS::DynamoDB::Table
       Properties:

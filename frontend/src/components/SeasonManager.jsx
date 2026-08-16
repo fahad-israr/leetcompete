@@ -5,7 +5,9 @@ import { api } from '../services/api';
 export default function SeasonManager({
   onSelectContest,
   onOpenCreateContestForSeason,
-  onOpenCreateSeason
+  onOpenCreateSeason,
+  currentUser,
+  onOpenAuthModal
 }) {
   const [seasons, setSeasons] = useState([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState(null);
@@ -484,6 +486,29 @@ export default function SeasonManager({
           </button>
         </div>
       </div>
+
+      {/* User Auth Info Banner */}
+      {!currentUser && (
+        <div style={{
+          background: 'var(--accent-primary-light)',
+          border: '1px solid var(--border-glow)',
+          borderRadius: 'var(--radius-md)',
+          padding: '12px 18px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '10px'
+        }}>
+          <div style={{ fontSize: '0.875rem', color: 'var(--text-main)' }}>
+            <strong>💡 Private Problem Curricula:</strong> Sign in or create an account to isolate and organize your personal season problem bundles!
+          </div>
+          <button onClick={onOpenAuthModal} className="btn btn-primary btn-sm">
+            Sign In / Register
+          </button>
+        </div>
+      )}
 
       {isLoading ? (
         <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-dim)' }}>Loading seasons...</div>

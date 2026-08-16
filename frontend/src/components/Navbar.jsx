@@ -1,31 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Flame, PlusCircle, Compass, Layers, User, Check, Edit2, ShieldCheck, Lock, Sun, Moon, Menu, X } from 'lucide-react';
+import { Flame, PlusCircle, Compass, Layers, User, LogIn, LogOut, Sun, Moon, Menu, X, Check } from 'lucide-react';
+import { api } from '../services/api';
 
 export default function Navbar({
   activeView,
   setActiveView,
   onOpenCreateContest,
   onOpenCreateSeason,
-  onOpenAdminModal
+  onOpenAuthModal,
+  currentUser,
+  onLogout
 }) {
-  const [username, setUsername] = useState('');
-  const [isEditingUser, setIsEditingUser] = useState(false);
-  const [inputVal, setInputVal] = useState('');
-  const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
-  const [theme, setTheme] = useState('light'); // Default to light theme
+  const [theme, setTheme] = useState('light');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    // 1. Initialize Theme (Default = light)
     const savedTheme = localStorage.getItem('leetcompete_theme') || 'light';
     setTheme(savedTheme);
     document.documentElement.setAttribute('data-theme', savedTheme);
-
-    // 2. Initialize Username & Admin state
-    const savedUser = localStorage.getItem('leetcompete_username') || '';
-    setUsername(savedUser);
-    setInputVal(savedUser);
-    checkAdmin();
   }, []);
 
   const toggleTheme = () => {
@@ -33,21 +25,6 @@ export default function Navbar({
     setTheme(nextTheme);
     localStorage.setItem('leetcompete_theme', nextTheme);
     document.documentElement.setAttribute('data-theme', nextTheme);
-  };
-
-  const checkAdmin = () => {
-    const savedPass = sessionStorage.getItem('leetcompete_admin_passcode') || localStorage.getItem('leetcompete_admin_passcode');
-    setIsAdminUnlocked(!!savedPass);
-  };
-
-  const handleSaveUser = (e) => {
-    e.preventDefault();
-    if (!inputVal.trim()) return;
-    const clean = inputVal.trim().toLowerCase();
-    localStorage.setItem('leetcompete_username', clean);
-    setUsername(clean);
-    setIsEditingUser(false);
-    window.dispatchEvent(new CustomEvent('leetcompete_user_changed', { detail: clean }));
   };
 
   const handleNavClick = (view) => {
@@ -118,7 +95,7 @@ export default function Navbar({
             style={{ padding: '6px 12px', borderRadius: '6px' }}
           >
             <Layers size={16} />
-            Seasons & Bundles
+            My Seasons & Bundles
           </button>
         </div>
       </div>
@@ -141,21 +118,6 @@ export default function Navbar({
           <span className="desktop-only-controls">{theme === 'light' ? 'Dark' : 'Light'}</span>
         </button>
 
-        {/* Desktop Admin Mode Badge */}
-        <button
-          onClick={onOpenAdminModal}
-          className="btn btn-secondary btn-sm desktop-only-controls"
-          style={{
-            borderColor: isAdminUnlocked ? 'var(--color-easy)' : 'var(--border-color)',
-            color: isAdminUnlocked ? 'var(--color-easy)' : 'var(--text-muted)',
-            padding: '6px 10px'
-          }}
-          title={isAdminUnlocked ? 'Admin Mode Active' : 'Unlock Admin Mode'}
-        >
-          {isAdminUnlocked ? <ShieldCheck size={14} color="var(--color-easy)" /> : <Lock size={14} />}
-          <span>{isAdminUnlocked ? 'Admin' : 'Admin Login'}</span>
-        </button>
-
         {/* Desktop New Season Button */}
         <button
           onClick={onOpenCreateSeason}
@@ -165,7 +127,7 @@ export default function Navbar({
           <span>New Season</span>
         </button>
 
-        {/* Quick Host Button (Visible on both Mobile & Desktop) */}
+        {/* Quick Host Button */}
         <button
           onClick={() => {
             onOpenCreateContest();
@@ -178,53 +140,56 @@ export default function Navbar({
           <span>Host</span>
         </button>
 
-        {/* Desktop LeetCode User Badge */}
-        <div className="desktop-only-controls" style={{
-          display: 'flex',
-          alignItems: 'center',
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-          borderRadius: 'var(--radius-md)',
-          padding: '4px 10px',
-          gap: '6px'
-        }}>
-          <User size={14} color="var(--accent-primary)" />
-          {isEditingUser ? (
-            <form onSubmit={handleSaveUser} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <input
-                type="text"
-                value={inputVal}
-                onChange={(e) => setInputVal(e.target.value)}
-                placeholder="Username"
-                autoFocus
-                style={{
-                  background: 'var(--bg-input)',
-                  border: '1px solid var(--accent-primary)',
-                  borderRadius: '4px',
-                  padding: '2px 6px',
-                  color: 'var(--text-main)',
-                  fontSize: '0.8rem',
-                  width: '100px',
-                  outline: 'none'
-                }}
-              />
-              <button type="submit" style={{ background: 'var(--accent-primary)', border: 'none', borderRadius: '4px', padding: '3px', cursor: 'pointer', color: '#fff' }}>
-                <Check size={12} />
-              </button>
-            </form>
-          ) : (
-            <div
-              onClick={() => setIsEditingUser(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
-              title="Click to change your LeetCode username"
-            >
-              <span style={{ fontSize: '0.825rem', fontWeight: '500', color: username ? 'var(--text-main)' : 'var(--text-dim)', maxWidth: '90px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {username ? `@${username}` : 'Set ID'}
+        {/* Desktop User Account Badge / Auth Trigger */}
+        {currentUser ? (
+          <div className="desktop-only-controls" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--radius-md)',
+              padding: '4px 10px',
+              gap: '6px'
+            }}>
+              <div style={{
+                background: 'var(--accent-primary-light)',
+                color: 'var(--accent-primary)',
+                width: '22px',
+                height: '22px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.75rem',
+                fontWeight: '800'
+              }}>
+                {(currentUser.displayName || currentUser.username).charAt(0).toUpperCase()}
+              </div>
+              <span style={{ fontSize: '0.825rem', fontWeight: '600', color: 'var(--text-main)', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                @{currentUser.username}
               </span>
-              <Edit2 size={11} color="var(--text-muted)" />
             </div>
-          )}
-        </div>
+
+            <button
+              onClick={onLogout}
+              className="btn btn-secondary btn-sm"
+              style={{ padding: '6px 8px', color: 'var(--text-dim)' }}
+              title="Sign Out"
+            >
+              <LogOut size={14} />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={onOpenAuthModal}
+            className="btn btn-secondary btn-sm desktop-only-controls"
+            style={{ borderColor: 'var(--accent-primary)', color: 'var(--text-main)' }}
+          >
+            <LogIn size={14} color="var(--accent-primary)" />
+            <span>Sign In</span>
+          </button>
+        )}
 
         {/* Mobile Hamburger Toggle Button */}
         <button
@@ -251,7 +216,7 @@ export default function Navbar({
           className={`mobile-nav-link ${activeView === 'seasons' ? 'active' : ''}`}
         >
           <Layers size={18} />
-          <span>Seasons & Problem Bundles</span>
+          <span>My Seasons & Problem Bundles</span>
         </button>
 
         <div style={{ height: '1px', background: 'var(--border-color)', margin: '4px 0' }} />
@@ -267,51 +232,67 @@ export default function Navbar({
           <span>Create New Season</span>
         </button>
 
-        <button
-          onClick={() => {
-            onOpenAdminModal();
-            setIsMobileMenuOpen(false);
-          }}
-          className="mobile-nav-link"
-        >
-          {isAdminUnlocked ? <ShieldCheck size={18} color="var(--color-easy)" /> : <Lock size={18} />}
-          <span>{isAdminUnlocked ? 'Admin Mode (Active)' : 'Unlock Admin Mode'}</span>
-        </button>
+        {/* Mobile Account Section */}
+        {currentUser ? (
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-md)',
+            padding: '12px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: '4px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                background: 'var(--accent-primary-light)',
+                color: 'var(--accent-primary)',
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.85rem',
+                fontWeight: '800'
+              }}>
+                {(currentUser.displayName || currentUser.username).charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <div style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-main)' }}>
+                  {currentUser.displayName || currentUser.username}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                  @{currentUser.username}
+                </div>
+              </div>
+            </div>
 
-        {/* Mobile User Profile ID Form */}
-        <div style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-          borderRadius: 'var(--radius-md)',
-          padding: '12px 14px',
-          marginTop: '6px'
-        }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <User size={14} color="var(--accent-primary)" />
-            <span>LeetCode Username:</span>
-          </div>
-          <form onSubmit={handleSaveUser} style={{ display: 'flex', gap: '8px' }}>
-            <input
-              type="text"
-              value={inputVal}
-              onChange={(e) => setInputVal(e.target.value)}
-              placeholder="e.g. neetcode"
-              style={{
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border-color)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '8px 12px',
-                color: 'var(--text-main)',
-                fontSize: '16px',
-                flex: 1,
-                outline: 'none'
+            <button
+              onClick={() => {
+                onLogout();
+                setIsMobileMenuOpen(false);
               }}
-            />
-            <button type="submit" className="btn btn-primary btn-sm" style={{ padding: '8px 14px' }}>
-              Save
+              className="btn btn-danger btn-sm"
+              style={{ padding: '5px 10px', fontSize: '0.75rem' }}
+            >
+              <LogOut size={13} /> Sign Out
             </button>
-          </form>
-        </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => {
+              onOpenAuthModal();
+              setIsMobileMenuOpen(false);
+            }}
+            className="mobile-nav-link"
+            style={{ color: 'var(--accent-primary)', borderColor: 'var(--border-glow)' }}
+          >
+            <LogIn size={18} />
+            <span>Sign In / Create Account</span>
+          </button>
+        )}
       </div>
     </nav>
   );
