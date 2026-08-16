@@ -950,6 +950,10 @@ exports.handler = async (event) => {
         const isInProgress = currentStatus === 'IN_PROGRESS' && (!c.endTime || now < c.endTime);
         const isActive = isWaiting || isInProgress;
 
+        const isOrganizer = authUser && (
+          authUser.username.toLowerCase() === (c.ownerUsername || '').toLowerCase() ||
+          authUser.username.toLowerCase() === (c.hostUsername || '').toLowerCase()
+        );
         const contestEntry = {
           id: c.id,
           code: c.code,
@@ -957,7 +961,10 @@ exports.handler = async (event) => {
           seasonId: c.seasonId,
           seasonTitle: c.seasonTitle,
           seasonRound: c.seasonRound,
+          ownerUsername: c.ownerUsername,
           isPrivate: !!c.password,
+          password: isOrganizer ? (c.password || '') : (c.password ? '••••••••' : ''),
+          isOrganizer: !!isOrganizer,
           durationMinutes: c.durationMinutes,
           status: currentStatus,
           startTime: c.startTime,
@@ -1179,11 +1186,18 @@ exports.handler = async (event) => {
         ...u
       }));
 
+      const isOrganizer = authUser && (
+        authUser.username.toLowerCase() === (contest.ownerUsername || '').toLowerCase() ||
+        authUser.username.toLowerCase() === (contest.hostUsername || '').toLowerCase()
+      );
+
       return jsonResponse(200, {
         success: true,
         contest: {
           ...contest,
           isPrivate: !!contest.password,
+          password: isOrganizer ? (contest.password || '') : (contest.password ? '••••••••' : ''),
+          isOrganizer: !!isOrganizer,
           leaderboard,
           submissions
         }

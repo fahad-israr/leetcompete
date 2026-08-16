@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, HelpCircle, Share2, Play, CheckCircle2, AlertCircle, Check, UserCheck, Layers, ArrowLeft, Lock, KeyRound, ShieldCheck } from 'lucide-react';
+import { Trophy, HelpCircle, Share2, Play, CheckCircle2, AlertCircle, Check, UserCheck, Layers, ArrowLeft, Lock, KeyRound, ShieldCheck, Edit3, User, Sparkles } from 'lucide-react';
 import Countdown from './Countdown';
 import ProblemCard from './ProblemCard';
 import Leaderboard from './Leaderboard';
 import LobbyChat from './LobbyChat';
+import { EyeIcon, EyeOffIcon } from './ProblemPicker';
 import { api } from '../services/api';
 
 export default function LobbyArena({ contestCode, onBack, currentUser }) {
@@ -17,9 +18,18 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
   const [username, setUsername] = useState('');
   const [usernameInput, setUsernameInput] = useState('');
   
+  // Entry gate state (Requires alias + LeetCode handle, and password if private)
+  const [hasEnteredArena, setHasEnteredArena] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  
   const [passwordInput, setPasswordInput] = useState('');
   const [isPasswordUnlocked, setIsPasswordUnlocked] = useState(false);
-  const [passwordError, setPasswordError] = useState('');
+  const [entryError, setEntryError] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
+  
+  const [showPassword, setShowPassword] = useState(false);
+  const [copiedPass, setCopiedPass] = useState(false);
+  
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
@@ -44,6 +54,11 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     if (savedPass) {
       setPasswordInput(savedPass);
       setIsPasswordUnlocked(true);
+    }
+
+    // If user already has alias & LC handle saved previously
+    if (savedAlias && savedLC) {
+      setHasEnteredArena(true);
     }
   }, [contestCode, currentUser]);
 
@@ -71,9 +86,16 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     try {
       const data = await api.getContest(contestCode);
       setContest(data);
-      if (!data.isPrivate) {
+      
+      const isCreator = (currentUser && (
+        (currentUser.username || '').toLowerCase() === (data.ownerUsername || '').toLowerCase() ||
+        (currentUser.username || '').toLowerCase() === (data.hostUsername || '').toLowerCase()
+      )) || !!data.isOrganizer;
+
+      if (!data.isPrivate || isCreator || (data.password && data.password !== '••••••••')) {
         setIsPasswordUnlocked(true);
       }
+      
       try {
         const msgs = await api.getMessages(data.id);
         setMessages(msgs || []);
@@ -87,42 +109,47 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     }
   };
 
-  const handleUnlockPassword = async (e) => {
+  // Unified Entry Form (Handles Name/Alias, Private LeetCode Handle, and Contest Password)
+  const handleJoinArenaSubmit = async (e) => {
     e.preventDefault();
-    if (!passwordInput.trim()) return;
-    setPasswordError('');
+    if (!displayNameInput.trim()) {
+      return setEntryError('Please enter a display name / alias for rankings.');
+    }
+    if (!usernameInput.trim()) {
+      return setEntryError('Please enter your LeetCode handle for submission verification.');
+    }
+    if (contest.isPrivate && !isPasswordUnlocked && !passwordInput.trim()) {
+      return setEntryError('Contest password is required for this private lobby.');
+    }
+
+    setEntryError('');
+    setIsJoining(true);
+
+    const cleanAlias = displayNameInput.trim();
+    const cleanLC = usernameInput.trim().toLowerCase();
 
     try {
-      await api.joinContest(contest.id, username || displayName || 'Guest', displayName || username || 'Guest', passwordInput.trim());
-      sessionStorage.setItem(`contest_pass_${contestCode}`, passwordInput.trim());
+      if (contest?.id) {
+        await api.joinContest(contest.id, cleanLC, cleanAlias, passwordInput.trim() || undefined);
+      }
+
+      localStorage.setItem('leetcompete_display_name', cleanAlias);
+      localStorage.setItem('leetcompete_lc_handle', cleanLC);
+      localStorage.setItem('leetcompete_username', cleanLC);
+      if (passwordInput.trim()) {
+        sessionStorage.setItem(`contest_pass_${contestCode}`, passwordInput.trim());
+      }
+
+      setDisplayName(cleanAlias);
+      setUsername(cleanLC);
       setIsPasswordUnlocked(true);
+      setHasEnteredArena(true);
+      setIsEditingProfile(false);
       loadContest();
     } catch (err) {
-      setPasswordError(err.message || 'Incorrect password');
-    }
-  };
-
-  const handleSaveProfile = async (e) => {
-    e.preventDefault();
-    if (!displayNameInput.trim()) return;
-    
-    const cleanAlias = displayNameInput.trim();
-    const cleanLC = (usernameInput.trim() || cleanAlias).toLowerCase();
-    
-    localStorage.setItem('leetcompete_display_name', cleanAlias);
-    localStorage.setItem('leetcompete_lc_handle', cleanLC);
-    localStorage.setItem('leetcompete_username', cleanLC);
-    
-    setDisplayName(cleanAlias);
-    setUsername(cleanLC);
-
-    if (contest?.id) {
-      try {
-        await api.joinContest(contest.id, cleanLC, cleanAlias, passwordInput || undefined);
-        loadContest();
-      } catch (err) {
-        console.error('Join error:', err);
-      }
+      setEntryError(err.message || 'Failed to join contest arena. Please verify your details.');
+    } finally {
+      setIsJoining(false);
     }
   };
 
@@ -173,9 +200,20 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
 
   const handleCopyLobbyLink = () => {
     const url = `${window.location.origin}${window.location.pathname}?lobby=${contest?.code || contestCode}`;
-    navigator.clipboard.writeText(url);
+    const fullText = (contest?.isPrivate && contest?.password && contest.password !== '••••••••') 
+      ? `Join LeetCode Contest: ${contest.title}\nLink: ${url}\nPassword: ${contest.password}`
+      : url;
+    
+    navigator.clipboard.writeText(fullText);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
+  };
+
+  const handleCopyPassword = () => {
+    if (!contest?.password) return;
+    navigator.clipboard.writeText(contest.password);
+    setCopiedPass(true);
+    setTimeout(() => setCopiedPass(false), 2000);
   };
 
   if (isLoading) {
@@ -199,50 +237,140 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     );
   }
 
-  // Private Lobby Password Screen
-  if (contest.isPrivate && !isPasswordUnlocked) {
+  const isOrganizer = (currentUser && (
+    (currentUser.username || '').toLowerCase() === (contest.ownerUsername || '').toLowerCase() ||
+    (currentUser.username || '').toLowerCase() === (contest.hostUsername || '').toLowerCase()
+  )) || !!contest.isOrganizer;
+
+  // ENTRY GATE: If not yet joined, or editing profile, or private lobby locked
+  const requiresGate = (!hasEnteredArena && !isOrganizer) || (contest.isPrivate && !isPasswordUnlocked && !isOrganizer) || isEditingProfile;
+
+  if (requiresGate) {
     return (
-      <div className="glass-panel" style={{ maxWidth: '480px', margin: '60px auto', padding: '36px', textAlign: 'center' }}>
-        <div style={{
-          background: 'rgba(245, 158, 11, 0.15)',
-          width: '54px',
-          height: '54px',
-          borderRadius: '50%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '0 auto 16px'
-        }}>
-          <Lock size={26} color="#fcd34d" />
+      <div className="glass-panel" style={{ maxWidth: '500px', margin: '40px auto', padding: '32px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '22px' }}>
+          <div style={{
+            background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover))',
+            width: '50px',
+            height: '50px',
+            borderRadius: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 12px',
+            boxShadow: '0 0 16px var(--accent-orange-glow)'
+          }}>
+            {contest.isPrivate ? <Lock size={24} color="#fff" /> : <Trophy size={24} color="#fff" />}
+          </div>
+          <h2 style={{ fontSize: '1.4rem', fontWeight: '800', marginBottom: '4px' }}>
+            {contest.title}
+          </h2>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            Lobby Code: <strong style={{ color: 'var(--accent-primary)', fontFamily: 'var(--font-mono)' }}>{contest.code}</strong>
+            {contest.isPrivate && ' • 🔒 Private Match'}
+          </div>
         </div>
-        <h2 style={{ fontSize: '1.4rem', fontWeight: '700', marginBottom: '6px' }}>Private Contest Lobby</h2>
-        <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '20px' }}>
-          This contest is password-protected. Please enter the password shared by the host.
-        </p>
 
-        <form onSubmit={handleUnlockPassword}>
-          <input
-            type="password"
-            placeholder="Enter Contest Password"
-            value={passwordInput}
-            onChange={(e) => setPasswordInput(e.target.value)}
-            className="form-input"
-            style={{ marginBottom: '12px', textAlign: 'center', fontSize: '1rem' }}
-            autoFocus
-          />
+        <form onSubmit={handleJoinArenaSubmit}>
+          {/* Field 1: Contest Alias / Display Name */}
+          <div className="form-group">
+            <label className="form-label" style={{ fontWeight: '700' }}>
+              <User size={13} style={{ display: 'inline', marginRight: '4px' }} />
+              Contest Display Name / Alias *
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. SpeedyFox, Alex, Ninja99"
+              value={displayNameInput}
+              onChange={(e) => setDisplayNameInput(e.target.value)}
+              className="form-input"
+              autoFocus
+              required
+            />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '2px', display: 'block' }}>
+              This is the only name shown on live rankings and chat.
+            </span>
+          </div>
 
-          {passwordError && (
-            <div style={{ color: '#fb7185', fontSize: '0.85rem', marginBottom: '12px' }}>
-              {passwordError}
+          {/* Field 2: LeetCode Handle */}
+          <div className="form-group">
+            <label className="form-label" style={{ fontWeight: '700' }}>
+              <ShieldCheck size={13} color="var(--color-easy)" style={{ display: 'inline', marginRight: '4px' }} />
+              LeetCode Handle (Confidential) *
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. fahad00cms"
+              value={usernameInput}
+              onChange={(e) => setUsernameInput(e.target.value)}
+              className="form-input"
+              required
+            />
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-easy)', marginTop: '2px', display: 'block', lineHeight: 1.3 }}>
+              🔒 Kept strictly private for automated AC submission verification. Never revealed on public rankings.
+            </span>
+          </div>
+
+          {/* Field 3: Password (If Private Lobby) */}
+          {contest.isPrivate && !isPasswordUnlocked && (
+            <div className="form-group" style={{ marginBottom: '18px' }}>
+              <label className="form-label" style={{ fontWeight: '700', color: '#fbbf24' }}>
+                <Lock size={13} style={{ display: 'inline', marginRight: '4px' }} />
+                Contest Password *
+              </label>
+              <input
+                type="password"
+                placeholder="Enter password shared by organizer"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                className="form-input"
+                required
+              />
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button type="button" onClick={onBack} className="btn btn-secondary" style={{ flex: 1 }}>
-              Back
+          {entryError && (
+            <div style={{
+              background: 'rgba(244, 63, 94, 0.12)',
+              border: '1px solid rgba(244, 63, 94, 0.35)',
+              borderRadius: 'var(--radius-md)',
+              padding: '10px 14px',
+              marginBottom: '16px',
+              fontSize: '0.85rem',
+              color: '#fb7185',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <AlertCircle size={16} />
+              <span>{entryError}</span>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '10px', marginTop: '22px' }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (isEditingProfile) {
+                  setIsEditingProfile(false);
+                } else {
+                  onBack();
+                }
+              }}
+              className="btn btn-secondary"
+              style={{ flex: 1 }}
+            >
+              {isEditingProfile ? 'Cancel' : 'Back'}
             </button>
-            <button type="submit" disabled={!passwordInput.trim()} className="btn btn-primary" style={{ flex: 1 }}>
-              <KeyRound size={15} /> Unlock Arena
+
+            <button
+              type="submit"
+              disabled={isJoining || !displayNameInput.trim() || !usernameInput.trim() || (contest.isPrivate && !isPasswordUnlocked && !passwordInput.trim())}
+              className="btn btn-primary"
+              style={{ flex: 2 }}
+            >
+              <Sparkles size={16} />
+              {isJoining ? 'Entering Arena...' : 'Enter Match Arena'}
             </button>
           </div>
         </form>
@@ -282,7 +410,32 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
         </div>
 
         {/* Status controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          {/* Active Contestant Badge */}
+          {displayName && (
+            <div
+              onClick={() => setIsEditingProfile(true)}
+              style={{
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-md)',
+                padding: '6px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer'
+              }}
+              title="Click to edit contest alias / handle"
+            >
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Contestant:</span>
+              <strong style={{ fontSize: '0.9rem', color: 'var(--color-easy)' }}>
+                {displayName}
+              </strong>
+              <Edit3 size={13} color="var(--text-dim)" />
+            </div>
+          )}
+
+          {/* Lobby ID Card */}
           <div
             onClick={handleCopyLobbyLink}
             style={{
@@ -295,7 +448,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
               gap: '8px',
               cursor: 'pointer'
             }}
-            title="Click to copy invite link"
+            title="Click to copy full invite link"
           >
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Lobby ID:</span>
             <strong style={{ fontFamily: 'var(--font-mono)', fontSize: '1.05rem', color: '#60a5fa', letterSpacing: '0.05em' }}>
@@ -303,6 +456,65 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
             </strong>
             {copiedLink ? <Check size={14} color="var(--color-easy)" /> : <Share2 size={14} color="var(--text-dim)" />}
           </div>
+
+          {/* Organizer / Admin Password Card */}
+          {contest.isPrivate && (contest.password || isOrganizer) && contest.password !== '' && (
+            <div
+              style={{
+                background: 'rgba(245, 158, 11, 0.1)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                borderRadius: 'var(--radius-md)',
+                padding: '5px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+              title="Contest Password (Visible to Creator / Organizer)"
+            >
+              <Lock size={14} color="#f59e0b" />
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600' }}>Pass:</span>
+              <strong style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.95rem',
+                color: '#f59e0b',
+                letterSpacing: '0.05em'
+              }}>
+                {showPassword ? contest.password : '••••••••'}
+              </strong>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '2px',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+                title={showPassword ? "Hide password" : "Reveal password"}
+              >
+                {showPassword ? <EyeOffIcon size={14} color="var(--text-dim)" /> : <EyeIcon size={14} color="#f59e0b" />}
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyPassword}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: copiedPass ? 'var(--color-easy)' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '2px',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+                title="Copy password"
+              >
+                {copiedPass ? <Check size={14} color="var(--color-easy)" /> : <Share2 size={13} />}
+              </button>
+            </div>
+          )}
 
           <Countdown
             status={contest.status}
@@ -382,82 +594,12 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
             }}>
               <strong>How Submission Verification Works:</strong>
               <ol style={{ marginLeft: '20px', marginTop: '6px' }}>
-                <li>Set your <strong>Display Name</strong> and <strong>LeetCode Handle</strong> in the profile bar below.</li>
-                <li>Click <em>"Solve on LeetCode"</em> on any question to open the problem in LeetCode.</li>
-                <li>Submit your solution on LeetCode until you get an <strong>Accepted (AC)</strong> verdict.</li>
-                <li>Return here and click <strong>"Submit"</strong>. Our AWS Lambda backend queries LeetCode GraphQL in real-time, verifies your AC timestamp, and updates the leaderboard!</li>
+                <li>Solve problems directly on LeetCode by clicking <em>"Solve on LeetCode"</em>.</li>
+                <li>Once accepted on LeetCode, click <strong>"Submit"</strong> here.</li>
+                <li>AWS Lambda checks your private LeetCode submission in real-time and updates the rankings under your alias: <strong>{displayName}</strong>!</li>
               </ol>
             </div>
           )}
-
-          {/* Privacy-Preserving Contest Profile Banner */}
-          <div style={{
-            background: 'var(--bg-input)',
-            border: '1px solid var(--border-color)',
-            borderRadius: 'var(--radius-md)',
-            padding: '16px 20px',
-            marginBottom: '24px'
-          }}>
-            <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                <span style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <ShieldCheck size={16} color="var(--color-easy)" />
-                  Contest Profile & Privacy
-                </span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--color-easy)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  🔒 LeetCode handles are strictly private and never shown on rankings
-                </span>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', alignItems: 'flex-end' }}>
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.775rem', marginBottom: '4px' }}>
-                    Contest Alias (Shown on Leaderboard) *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. SpeedyFox or Alex"
-                    value={displayNameInput}
-                    onChange={(e) => setDisplayNameInput(e.target.value)}
-                    className="form-input"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.775rem', marginBottom: '4px' }}>
-                    LeetCode Handle (Private for AC Check) *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. fahad00cms"
-                    value={usernameInput}
-                    onChange={(e) => setUsernameInput(e.target.value)}
-                    className="form-input"
-                    required
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="btn btn-primary btn-sm"
-                  style={{ height: '38px', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                >
-                  <UserCheck size={15} /> Save & Join
-                </button>
-              </div>
-
-              {displayName && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  <span style={{ color: 'var(--color-easy)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <CheckCircle2 size={13} /> Active as: <strong>{displayName}</strong>
-                  </span>
-                  <span>•</span>
-                  <span>Linked LeetCode handle: <strong>{username ? `${username.slice(0, 2)}•••${username.slice(-1)}` : 'Set'}</strong> (Hidden from peers)</span>
-                </div>
-              )}
-            </form>
-          </div>
 
           {/* Questions Tab */}
           {activeTab === 'questions' && (
