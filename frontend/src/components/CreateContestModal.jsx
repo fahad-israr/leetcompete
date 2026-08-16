@@ -221,50 +221,75 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
               </div>
             </div>
 
-            {/* Public vs Private Contest Toggle */}
-            <div style={{
-              background: 'var(--bg-input)',
-              border: '1px solid var(--border-color)',
-              borderRadius: 'var(--radius-md)',
-              padding: '14px 18px',
-              marginBottom: '20px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '12px'
-            }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '0.9rem' }}>
-                  {isPrivate ? <Lock size={15} color="#fbbf24" /> : <Globe size={15} color="var(--color-easy)" />}
-                  <span>{isPrivate ? 'Private Contest (Password Protected)' : 'Public Contest (Open to All)'}</span>
+            {/* Public vs Private Lobby Access Selector */}
+            <div className="form-group" style={{ marginBottom: '20px' }}>
+              <label className="form-label" style={{ fontWeight: '700', fontSize: '0.85rem' }}>
+                Lobby Privacy Access *
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div
+                  onClick={() => setIsPrivate(false)}
+                  style={{
+                    border: `2px solid ${!isPrivate ? 'var(--color-easy)' : 'var(--border-color)'}`,
+                    background: !isPrivate ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-input)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '12px 14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '0.925rem', color: !isPrivate ? 'var(--color-easy)' : 'var(--text-main)' }}>
+                    <Globe size={18} />
+                    <span>Public Lobby</span>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', lineHeight: 1.3 }}>
+                    Open to all competitors without password.
+                  </span>
                 </div>
-                <div style={{ fontSize: '0.775rem', color: 'var(--text-dim)', marginTop: '2px' }}>
-                  {isPrivate ? 'Participants must enter password to join.' : 'Anyone with the 5-letter code can join freely.'}
+
+                <div
+                  onClick={() => setIsPrivate(true)}
+                  style={{
+                    border: `2px solid ${isPrivate ? '#fbbf24' : 'var(--border-color)'}`,
+                    background: isPrivate ? 'rgba(245, 158, 11, 0.08)' : 'var(--bg-input)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '12px 14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '0.925rem', color: isPrivate ? '#fbbf24' : 'var(--text-main)' }}>
+                    <Lock size={18} />
+                    <span>Private Lobby</span>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', lineHeight: 1.3 }}>
+                    Requires a password to join.
+                  </span>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {isPrivate && (
+              {isPrivate && (
+                <div style={{ marginTop: '12px' }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', color: '#fbbf24', fontWeight: '700' }}>
+                    Set Contest Password *
+                  </label>
                   <input
                     type="text"
-                    placeholder="Contest Password"
+                    placeholder="e.g. clash2026"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="form-input"
-                    style={{ width: '160px', padding: '6px 10px', fontSize: '0.825rem' }}
                     autoFocus
+                    required
                   />
-                )}
-                <button
-                  type="button"
-                  onClick={() => setIsPrivate(!isPrivate)}
-                  className="btn btn-secondary btn-sm"
-                  style={{ borderColor: isPrivate ? '#fbbf24' : 'var(--border-color)' }}
-                >
-                  {isPrivate ? 'Make Public' : 'Set Private'}
-                </button>
-              </div>
+                </div>
+              )}
             </div>
 
             {/* Embedded Problem Picker */}
