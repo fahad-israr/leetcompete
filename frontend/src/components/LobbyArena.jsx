@@ -298,7 +298,7 @@ export default function LobbyArena({ contestCode, onBack }) {
       </div>
 
       {/* 2-Column Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: '20px', alignItems: 'start' }}>
+      <div className="arena-layout-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: '20px', alignItems: 'start' }}>
         
         {/* Left Column */}
         <div className="glass-panel" style={{ padding: '24px' }}>

@@ -83,6 +83,25 @@ function verifyAdminAuth(event) {
   return { isAdmin: false };
 }
 
+async function resolveContest(codeOrId) {
+  if (!codeOrId) return null;
+  const clean = codeOrId.trim();
+  if (clean.length === 5) {
+    const qRes = await docClient.send(new QueryCommand({
+      TableName: CONTESTS_TABLE,
+      IndexName: 'CodeIndex',
+      KeyConditionExpression: 'code = :code',
+      ExpressionAttributeValues: { ':code': clean.toUpperCase() }
+    }));
+    if (qRes.Items && qRes.Items[0]) return qRes.Items[0];
+  }
+  const getRes = await docClient.send(new GetCommand({
+    TableName: CONTESTS_TABLE,
+    Key: { id: clean }
+  }));
+  return getRes.Item || null;
+}
+
 /**
  * Main AWS Lambda Request Router
  */
@@ -460,18 +479,14 @@ exports.handler = async (event) => {
     // Join Contest (with password check for private lobbies)
     const joinMatch = path.match(/^\/api\/contests\/([a-zA-Z0-9_-]+)\/join$/);
     if (joinMatch && httpMethod === 'POST') {
-      const contestId = joinMatch[1];
+      const codeOrId = joinMatch[1];
       const { username, displayName, password } = body;
 
       if (!username || !username.trim()) {
         return jsonResponse(400, { success: false, error: 'LeetCode username is required.' });
       }
 
-      const cRes = await docClient.send(new GetCommand({
-        TableName: CONTESTS_TABLE,
-        Key: { id: contestId }
-      }));
-      const contest = cRes.Item;
+      const contest = await resolveContest(codeOrId);
       if (!contest) {
         return jsonResponse(404, { success: false, error: 'Contest not found.' });
       }
@@ -492,26 +507,22 @@ exports.handler = async (event) => {
 
         await docClient.send(new UpdateCommand({
           TableName: CONTESTS_TABLE,
-          Key: { id: contestId },
+          Key: { id: contest.id },
           UpdateExpression: 'SET participants = :p',
           ExpressionAttributeValues: { ':p': participants }
         }));
       }
 
-      return jsonResponse(200, { success: true, message: 'Joined successfully' });
+      return jsonResponse(200, { success: true, message: 'Joined successfully', contest });
     }
 
     // Start Contest
     const startMatch = path.match(/^\/api\/contests\/([a-zA-Z0-9_-]+)\/start$/);
     if (startMatch && httpMethod === 'POST') {
-      const contestId = startMatch[1];
+      const codeOrId = startMatch[1];
       const now = Math.floor(Date.now() / 1000);
 
-      const cRes = await docClient.send(new GetCommand({
-        TableName: CONTESTS_TABLE,
-        Key: { id: contestId }
-      }));
-      const contest = cRes.Item;
+      const contest = await resolveContest(codeOrId);
       if (!contest) return jsonResponse(404, { success: false, error: 'Contest not found' });
 
       const duration = contest.durationMinutes || 90;
@@ -520,7 +531,7 @@ exports.handler = async (event) => {
 
       await docClient.send(new UpdateCommand({
         TableName: CONTESTS_TABLE,
-        Key: { id: contestId },
+        Key: { id: contest.id },
         UpdateExpression: 'SET #st = :status, startTime = :start, endTime = :end',
         ExpressionAttributeNames: { '#st': 'status' },
         ExpressionAttributeValues: {
@@ -530,20 +541,16 @@ exports.handler = async (event) => {
         }
       }));
 
-      return jsonResponse(200, { success: true, status: 'IN_PROGRESS', startTime, endTime });
+      return jsonResponse(200, { success: true, status: 'IN_PROGRESS', startTime, endTime, contest: { ...contest, status: 'IN_PROGRESS', startTime, endTime } });
     }
 
     // Verify Submission
     const verifyMatch = path.match(/^\/api\/contests\/([a-zA-Z0-9_-]+)\/verify$/);
     if (verifyMatch && httpMethod === 'POST') {
-      const contestId = verifyMatch[1];
+      const codeOrId = verifyMatch[1];
       const { username, problemSlug } = body;
 
-      const cRes = await docClient.send(new GetCommand({
-        TableName: CONTESTS_TABLE,
-        Key: { id: contestId }
-      }));
-      const contest = cRes.Item;
+      const contest = await resolveContest(codeOrId);
       if (!contest) return jsonResponse(404, { success: false, error: 'Contest not found.' });
 
       if (contest.status !== 'IN_PROGRESS') {
@@ -573,10 +580,10 @@ exports.handler = async (event) => {
 
       const solveTimeSeconds = Math.max(0, verification.submission.timestamp - contest.startTime);
       const penaltyMinutes = Math.floor(solveTimeSeconds / 60);
-      const subId = `sub_${contestId}_${username}_${problemSlug}`;
+      const subId = `sub_${contest.id}_${username}_${problemSlug}`;
 
       const submissionItem = {
-        contestId,
+        contestId: contest.id,
         id: subId,
         username: username.trim().toLowerCase(),
         problemSlug,
@@ -585,6 +592,43 @@ exports.handler = async (event) => {
         submissionId: String(verification.submission.id),
         submissionTimestamp: verification.submission.timestamp,
         penaltyMinutes,
+        verifiedAt: Math.floor(Date.now() / 1000)
+      };
+
+      await docClient.send(new PutCommand({
+        TableName: SUBMISSIONS_TABLE,
+        Item: submissionItem
+      }));
+
+      return jsonResponse(200, {
+        success: true,
+        verified: true,
+        submission: submissionItem
+      });
+    }
+
+    // Mock / Test Submission (For verification and testing leaderboard ranking updates)
+    const mockSubMatch = path.match(/^\/api\/contests\/([a-zA-Z0-9_-]+)\/mock-submission$/);
+    if (mockSubMatch && httpMethod === 'POST') {
+      const codeOrId = mockSubMatch[1];
+      const { username, problemSlug, penaltyMinutes = 5, points = 100 } = body;
+
+      const contest = await resolveContest(codeOrId);
+      if (!contest) return jsonResponse(404, { success: false, error: 'Contest not found.' });
+
+      const problem = (contest.problems || []).find(p => p.titleSlug.toLowerCase() === problemSlug.toLowerCase()) || { title: problemSlug, points };
+
+      const subId = `sub_${contest.id}_${username}_${problemSlug}`;
+      const submissionItem = {
+        contestId: contest.id,
+        id: subId,
+        username: username.trim().toLowerCase(),
+        problemSlug,
+        problemTitle: problem.title,
+        points: Number(points) || 100,
+        submissionId: `mock_${Date.now()}`,
+        submissionTimestamp: Math.floor(Date.now() / 1000),
+        penaltyMinutes: Number(penaltyMinutes) || 0,
         verifiedAt: Math.floor(Date.now() / 1000)
       };
 

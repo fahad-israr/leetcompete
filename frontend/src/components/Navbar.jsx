@@ -36,43 +36,46 @@ export default function Navbar({
   };
 
   return (
-    <nav style={{
-      background: 'rgba(18, 18, 21, 0.95)',
-      backdropFilter: 'blur(16px)',
-      borderBottom: '1px solid var(--border-color)',
-      padding: '0 24px',
-      height: '70px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      position: 'sticky',
-      top: 0,
-      zIndex: 100
-    }}>
-      {/* Brand & New Logo */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+    <nav
+      className="navbar-container"
+      style={{
+        background: 'rgba(19, 22, 32, 0.95)',
+        backdropFilter: 'blur(16px)',
+        borderBottom: '1px solid var(--border-color)',
+        padding: '0 20px',
+        height: '66px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100
+      }}
+    >
+      {/* Brand & Logo */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
         <div
           onClick={() => setActiveView('home')}
           style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
         >
-          {/* Flame Icon Logo in Orange & Black */}
+          {/* Flame Icon Logo */}
           <div style={{
-            background: 'linear-gradient(135deg, #f97316, #ea580c)',
-            width: '38px',
-            height: '38px',
-            borderRadius: '10px',
+            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+            width: '36px',
+            height: '36px',
+            borderRadius: '9px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 0 18px rgba(249, 115, 22, 0.45)'
+            boxShadow: '0 0 14px rgba(245, 158, 11, 0.35)'
           }}>
-            <Flame size={22} color="#ffffff" />
+            <Flame size={20} color="#ffffff" />
           </div>
           <span style={{
-            fontSize: '1.45rem',
+            fontSize: '1.35rem',
             fontWeight: '800',
             letterSpacing: '-0.02em',
-            background: 'linear-gradient(to right, #ffffff, #fed7aa, #fb923c)',
+            background: 'linear-gradient(to right, #ffffff, #f1f5f9, #fbbf24)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent'
           }}>
@@ -81,57 +84,59 @@ export default function Navbar({
         </div>
 
         {/* Navigation Tabs */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="navbar-tabs" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <button
             onClick={() => setActiveView('home')}
             className={`tab-btn ${activeView === 'home' ? 'active' : ''}`}
-            style={{ padding: '8px 14px', borderRadius: '8px' }}
+            style={{ padding: '6px 12px', borderRadius: '6px' }}
           >
-            <Compass size={17} />
+            <Compass size={16} />
             Lobbies
           </button>
           <button
             onClick={() => setActiveView('seasons')}
             className={`tab-btn ${activeView === 'seasons' ? 'active' : ''}`}
-            style={{ padding: '8px 14px', borderRadius: '8px' }}
+            style={{ padding: '6px 12px', borderRadius: '6px' }}
           >
-            <Layers size={17} />
+            <Layers size={16} />
             Seasons & Bundles
           </button>
         </div>
       </div>
 
       {/* Right Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+      <div className="navbar-right" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         {/* Admin Mode Badge / Button */}
         <button
           onClick={onOpenAdminModal}
           className="btn btn-secondary btn-sm"
           style={{
             borderColor: isAdminUnlocked ? 'var(--color-easy)' : 'var(--border-color)',
-            color: isAdminUnlocked ? 'var(--color-easy)' : 'var(--text-muted)'
+            color: isAdminUnlocked ? 'var(--color-easy)' : 'var(--text-muted)',
+            padding: '6px 10px'
           }}
           title={isAdminUnlocked ? 'Admin Mode Active' : 'Unlock Admin Mode'}
         >
-          {isAdminUnlocked ? <ShieldCheck size={15} color="var(--color-easy)" /> : <Lock size={15} />}
-          <span>{isAdminUnlocked ? 'Admin Mode' : 'Admin Login'}</span>
+          {isAdminUnlocked ? <ShieldCheck size={14} color="var(--color-easy)" /> : <Lock size={14} />}
+          <span className="hide-on-mobile">{isAdminUnlocked ? 'Admin' : 'Admin Login'}</span>
         </button>
 
         <button
           onClick={onOpenCreateSeason}
-          className="btn btn-secondary btn-sm"
-          style={{ borderColor: 'rgba(249, 115, 22, 0.4)' }}
+          className="btn btn-secondary btn-sm hide-on-mobile"
+          style={{ borderColor: 'rgba(245, 158, 11, 0.35)' }}
         >
-          <Layers size={15} color="#fb923c" />
-          New Season
+          <Layers size={14} color="#fbbf24" />
+          <span>New Season</span>
         </button>
 
         <button
           onClick={onOpenCreateContest}
           className="btn btn-primary btn-sm"
+          style={{ padding: '6px 12px' }}
         >
           <PlusCircle size={15} />
-          Host Contest
+          <span>Host</span>
         </button>
 
         {/* LeetCode User Badge */}
@@ -141,43 +146,43 @@ export default function Navbar({
           background: 'var(--bg-card)',
           border: '1px solid var(--border-color)',
           borderRadius: 'var(--radius-md)',
-          padding: '6px 12px',
-          gap: '8px'
+          padding: '4px 10px',
+          gap: '6px'
         }}>
-          <User size={15} color="var(--accent-primary)" />
+          <User size={14} color="var(--accent-primary)" />
           {isEditingUser ? (
-            <form onSubmit={handleSaveUser} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <form onSubmit={handleSaveUser} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <input
                 type="text"
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
-                placeholder="LeetCode username"
+                placeholder="Username"
                 autoFocus
                 style={{
                   background: 'var(--bg-input)',
                   border: '1px solid var(--accent-primary)',
                   borderRadius: '4px',
-                  padding: '2px 8px',
+                  padding: '2px 6px',
                   color: '#fff',
-                  fontSize: '0.85rem',
-                  width: '140px',
+                  fontSize: '0.8rem',
+                  width: '110px',
                   outline: 'none'
                 }}
               />
-              <button type="submit" style={{ background: 'var(--accent-primary)', border: 'none', borderRadius: '4px', padding: '4px', cursor: 'pointer', color: '#fff' }}>
-                <Check size={13} />
+              <button type="submit" style={{ background: 'var(--accent-primary)', border: 'none', borderRadius: '4px', padding: '3px', cursor: 'pointer', color: '#fff' }}>
+                <Check size={12} />
               </button>
             </form>
           ) : (
             <div
               onClick={() => setIsEditingUser(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
               title="Click to change your LeetCode username"
             >
-              <span style={{ fontSize: '0.875rem', fontWeight: '500', color: username ? 'var(--text-main)' : 'var(--text-dim)' }}>
-                {username ? `@${username}` : 'Set LeetCode ID'}
+              <span style={{ fontSize: '0.825rem', fontWeight: '500', color: username ? 'var(--text-main)' : 'var(--text-dim)', maxWidth: '90px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {username ? `@${username}` : 'Set ID'}
               </span>
-              <Edit2 size={12} color="var(--text-muted)" />
+              <Edit2 size={11} color="var(--text-muted)" />
             </div>
           )}
         </div>
