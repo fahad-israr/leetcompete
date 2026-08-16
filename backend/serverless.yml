@@ -1,6 +1,5 @@
 service: leetcompete
 
-frameworkVersion: '3'
 useDotenv: true
 
 provider:
@@ -34,12 +33,13 @@ provider:
             - !Join ['', [!GetAtt ContestsTable.Arn, "/index/*"]]
 
 package:
+  excludeDevDependencies: false
   patterns:
-    - '!./**'
+    - '!node_modules/**'
+    - '!**/*.log'
     - 'index.js'
     - 'leetcode.js'
     - 'problemBank.js'
-    - 'node_modules/**'
 
 functions:
   api:
