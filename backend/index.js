@@ -682,34 +682,44 @@ exports.handler = async (event) => {
       });
     }
 
-    // === SEASONS ENDPOINTS (USER ISOLATED) ===
+    // === SEASONS ENDPOINTS (STRICTLY USER ISOLATED & AUTH REQUIRED) ===
     if (path === '/api/seasons' && httpMethod === 'GET') {
-      const targetUser = queryParams.owner || authUser?.username;
-      const result = await docClient.send(new ScanCommand({ TableName: SEASONS_TABLE }));
-      
-      let allItems = result.Items || [];
-      if (targetUser) {
-        allItems = allItems.filter(s => s.ownerUsername === targetUser || !s.ownerUsername);
+      if (!authUser || !authUser.username) {
+        // Unauthenticated users have no private seasons
+        return jsonResponse(200, { success: true, seasons: [] });
       }
 
-      const seasons = allItems.map(s => ({
-        ...s,
-        isArchived: !!s.isArchived,
-        totalPoolCount: s.pool?.length || 0,
-        usedProblemCount: Object.keys(s.usedProblems || {}).length,
-        remainingProblemCount: (s.pool?.length || 0) - Object.keys(s.usedProblems || {}).length
-      }));
+      const targetUser = authUser.username.toLowerCase();
+      const result = await docClient.send(new ScanCommand({ TableName: SEASONS_TABLE }));
+      
+      const userSeasons = (result.Items || [])
+        .filter(s => (s.ownerUsername || '').toLowerCase() === targetUser)
+        .map(s => ({
+          ...s,
+          isArchived: !!s.isArchived,
+          totalPoolCount: s.pool?.length || 0,
+          usedProblemCount: Object.keys(s.usedProblems || {}).length,
+          remainingProblemCount: (s.pool?.length || 0) - Object.keys(s.usedProblems || {}).length
+        }))
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
-      return jsonResponse(200, { success: true, seasons });
+      return jsonResponse(200, { success: true, seasons: userSeasons });
     }
 
     if (path === '/api/seasons' && httpMethod === 'POST') {
+      if (!authUser || !authUser.username) {
+        return jsonResponse(401, {
+          success: false,
+          error: 'Authentication required. Please log in or create an account to create seasons and track non-repeating problem pools.'
+        });
+      }
+
       const { title, description, pool = PROBLEM_CATALOG } = body;
       if (!title || !title.trim()) {
         return jsonResponse(400, { success: false, error: 'Season title is required.' });
       }
 
-      const owner = authUser?.username || queryParams.owner || 'public';
+      const owner = authUser.username.toLowerCase();
       const seasonId = `season_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
       const newSeason = {
         id: seasonId,
@@ -731,10 +741,20 @@ exports.handler = async (event) => {
       return jsonResponse(200, { success: true, season: newSeason });
     }
 
-    // Archive Season
+    // Archive Season (Owner Only)
     const seasonArchiveMatch = path.match(/^\/api\/seasons\/([a-zA-Z0-9_-]+)\/archive$/);
     if (seasonArchiveMatch && httpMethod === 'POST') {
+      if (!authUser || !authUser.username) {
+        return jsonResponse(401, { success: false, error: 'Authentication required.' });
+      }
       const seasonId = seasonArchiveMatch[1];
+      const sRes = await docClient.send(new GetCommand({ TableName: SEASONS_TABLE, Key: { id: seasonId } }));
+      if (!sRes.Item) return jsonResponse(404, { success: false, error: 'Season not found.' });
+
+      if ((sRes.Item.ownerUsername || '').toLowerCase() !== authUser.username.toLowerCase()) {
+        return jsonResponse(403, { success: false, error: 'Access denied. You do not own this season.' });
+      }
+
       await docClient.send(new UpdateCommand({
         TableName: SEASONS_TABLE,
         Key: { id: seasonId },
@@ -744,10 +764,20 @@ exports.handler = async (event) => {
       return jsonResponse(200, { success: true, message: 'Season archived successfully' });
     }
 
-    // Unarchive / Restore Season
+    // Unarchive / Restore Season (Owner Only)
     const seasonUnarchiveMatch = path.match(/^\/api\/seasons\/([a-zA-Z0-9_-]+)\/unarchive$/);
     if (seasonUnarchiveMatch && httpMethod === 'POST') {
+      if (!authUser || !authUser.username) {
+        return jsonResponse(401, { success: false, error: 'Authentication required.' });
+      }
       const seasonId = seasonUnarchiveMatch[1];
+      const sRes = await docClient.send(new GetCommand({ TableName: SEASONS_TABLE, Key: { id: seasonId } }));
+      if (!sRes.Item) return jsonResponse(404, { success: false, error: 'Season not found.' });
+
+      if ((sRes.Item.ownerUsername || '').toLowerCase() !== authUser.username.toLowerCase()) {
+        return jsonResponse(403, { success: false, error: 'Access denied. You do not own this season.' });
+      }
+
       await docClient.send(new UpdateCommand({
         TableName: SEASONS_TABLE,
         Key: { id: seasonId },
@@ -765,7 +795,7 @@ exports.handler = async (event) => {
       return jsonResponse(200, { success: true, count: questions.length, problems: questions });
     }
 
-    // Season Detail & Rounds
+    // Season Detail & Rounds (Owner Only)
     const seasonMatch = path.match(/^\/api\/seasons\/([a-zA-Z0-9_-]+)$/);
     if (seasonMatch && httpMethod === 'GET') {
       const seasonId = seasonMatch[1];
@@ -779,6 +809,10 @@ exports.handler = async (event) => {
       }
 
       const season = res.Item;
+      if (season.ownerUsername && (!authUser || (season.ownerUsername || '').toLowerCase() !== authUser.username.toLowerCase())) {
+        return jsonResponse(403, { success: false, error: 'Access denied. This season belongs to another user.' });
+      }
+
       const usedSlugs = Object.keys(season.usedProblems || {});
       const remainingPool = (season.pool || []).filter(p => !usedSlugs.includes(p.titleSlug.toLowerCase()));
 
@@ -794,9 +828,12 @@ exports.handler = async (event) => {
       });
     }
 
-    // Generate Round from Season Pool
+    // Generate Round from Season Pool (Owner Only)
     const seasonRoundMatch = path.match(/^\/api\/seasons\/([a-zA-Z0-9_-]+)\/generate-round$/);
     if (seasonRoundMatch && httpMethod === 'POST') {
+      if (!authUser || !authUser.username) {
+        return jsonResponse(401, { success: false, error: 'Authentication required.' });
+      }
       const seasonId = seasonRoundMatch[1];
       const res = await docClient.send(new GetCommand({
         TableName: SEASONS_TABLE,
@@ -808,6 +845,10 @@ exports.handler = async (event) => {
       }
 
       const season = res.Item;
+      if ((season.ownerUsername || '').toLowerCase() !== authUser.username.toLowerCase()) {
+        return jsonResponse(403, { success: false, error: 'Access denied. You do not own this season.' });
+      }
+
       const usedSlugs = Object.keys(season.usedProblems || {});
       const { countEasy, countMedium, countHard, countTotal = 6 } = body;
 
@@ -873,6 +914,10 @@ exports.handler = async (event) => {
           return jsonResponse(404, { success: false, error: 'Selected season not found.' });
         }
         seasonInfo = sRes.Item;
+
+        if (seasonInfo.ownerUsername && (!authUser || (seasonInfo.ownerUsername || '').toLowerCase() !== authUser.username.toLowerCase())) {
+          return jsonResponse(403, { success: false, error: 'Access denied. You cannot launch rounds from another user\'s private season.' });
+        }
 
         if (!selectedProblems || selectedProblems.length === 0) {
           const usedSlugs = Object.keys(seasonInfo.usedProblems || {});

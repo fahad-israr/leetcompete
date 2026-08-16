@@ -149,6 +149,8 @@ export default function App() {
         isOpen={isCreateSeasonOpen}
         onClose={() => setIsCreateSeasonOpen(false)}
         onSeasonCreated={handleSeasonCreated}
+        currentUser={currentUser}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
       />
 
       <AuthModal

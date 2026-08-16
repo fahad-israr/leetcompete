@@ -21,7 +21,7 @@ export default function SeasonManager({
 
   useEffect(() => {
     loadSeasons();
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     if (selectedSeasonId) {
