@@ -40,7 +40,11 @@ export default function Home({
     onSelectContest(joinCode.trim().toUpperCase());
   };
 
+  const now = Math.floor(Date.now() / 1000);
   const filteredContests = contests.filter(c => {
+    // Only show active lobbies (WAITING or IN_PROGRESS within time limit)
+    if (c.status === 'FINISHED') return false;
+    if (c.status === 'IN_PROGRESS' && c.endTime && now >= c.endTime) return false;
     if (filterType === 'public' && c.isPrivate) return false;
     if (filterType === 'private' && !c.isPrivate) return false;
     return true;

@@ -866,26 +866,62 @@ exports.handler = async (event) => {
 
     // === CONTESTS ENDPOINTS ===
     if (path === '/api/contests' && httpMethod === 'GET') {
+      const now = Math.floor(Date.now() / 1000);
       const result = await docClient.send(new ScanCommand({ TableName: CONTESTS_TABLE }));
-      const contests = (result.Items || []).map(c => ({
-        id: c.id,
-        code: c.code,
-        title: c.title,
-        seasonId: c.seasonId,
-        seasonTitle: c.seasonTitle,
-        seasonRound: c.seasonRound,
-        isPrivate: !!c.password,
-        durationMinutes: c.durationMinutes,
-        status: c.status,
-        startTime: c.startTime,
-        endTime: c.endTime,
-        hostUsername: c.hostUsername || c.ownerUsername,
-        problemCount: c.problems?.length || 0,
-        participantCount: c.participants?.length || 0,
-        createdAt: c.createdAt
-      })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      
+      const allItems = result.Items || [];
+      const contests = [];
 
-      return jsonResponse(200, { success: true, contests });
+      for (const c of allItems) {
+        let currentStatus = c.status || 'WAITING';
+
+        // Auto-transition to FINISHED if contest time has expired
+        if (currentStatus === 'IN_PROGRESS' && c.endTime && now >= c.endTime) {
+          currentStatus = 'FINISHED';
+          // Async update in DynamoDB
+          docClient.send(new UpdateCommand({
+            TableName: CONTESTS_TABLE,
+            Key: { id: c.id },
+            UpdateExpression: 'SET #st = :fin',
+            ExpressionAttributeNames: { '#st': 'status' },
+            ExpressionAttributeValues: { ':fin': 'FINISHED' }
+          })).catch(() => {});
+        }
+
+        // Check if contest is active (WAITING within last 48h, or IN_PROGRESS with time remaining)
+        const isWaiting = currentStatus === 'WAITING' && (now - (c.createdAt || now)) < (48 * 3600);
+        const isInProgress = currentStatus === 'IN_PROGRESS' && (!c.endTime || now < c.endTime);
+        const isActive = isWaiting || isInProgress;
+
+        const contestEntry = {
+          id: c.id,
+          code: c.code,
+          title: c.title,
+          seasonId: c.seasonId,
+          seasonTitle: c.seasonTitle,
+          seasonRound: c.seasonRound,
+          isPrivate: !!c.password,
+          durationMinutes: c.durationMinutes,
+          status: currentStatus,
+          startTime: c.startTime,
+          endTime: c.endTime,
+          isActive,
+          hostUsername: c.hostUsername || c.ownerUsername,
+          problemCount: c.problems?.length || 0,
+          participantCount: c.participants?.length || 0,
+          createdAt: c.createdAt
+        };
+
+        // Filter: If activeOnly requested (default), only return active ongoing lobbies
+        if (queryParams.activeOnly === 'false' || queryParams.all === 'true') {
+          contests.push(contestEntry);
+        } else if (isActive) {
+          contests.push(contestEntry);
+        }
+      }
+
+      contests.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      return jsonResponse(200, { success: true, count: contests.length, contests });
     }
 
     if (path === '/api/contests' && httpMethod === 'POST') {
