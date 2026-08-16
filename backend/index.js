@@ -1061,6 +1061,7 @@ exports.handler = async (event) => {
         ownerUsername: authUser?.username || hostUsername.toLowerCase(),
         hostUsername: hostUsername.trim(),
         password: (password || '').trim(),
+        isPrivate: !!(password && password.trim()),
         durationMinutes: Number(durationMinutes) || 60,
         status: 'WAITING',
         startTime: null,

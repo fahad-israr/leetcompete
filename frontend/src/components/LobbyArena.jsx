@@ -6,7 +6,7 @@ import Leaderboard from './Leaderboard';
 import LobbyChat from './LobbyChat';
 import { api } from '../services/api';
 
-export default function LobbyArena({ contestCode, onBack }) {
+export default function LobbyArena({ contestCode, onBack, currentUser }) {
   const [contest, setContest] = useState(null);
   const [messages, setMessages] = useState([]);
   const [activeTab, setActiveTab] = useState('questions'); // 'questions' | 'ranking'
@@ -22,16 +22,18 @@ export default function LobbyArena({ contestCode, onBack }) {
 
   useEffect(() => {
     loadContest();
-    const savedUser = localStorage.getItem('leetcompete_username') || '';
-    setUsername(savedUser);
-    setUsernameInput(savedUser);
+    const savedUser = currentUser?.username || localStorage.getItem('leetcompete_username') || '';
+    if (savedUser) {
+      setUsername(savedUser);
+      setUsernameInput(savedUser);
+    }
 
     const savedPass = sessionStorage.getItem(`contest_pass_${contestCode}`);
     if (savedPass) {
       setPasswordInput(savedPass);
       setIsPasswordUnlocked(true);
     }
-  }, [contestCode]);
+  }, [contestCode, currentUser]);
 
   // Adaptive auto-polling for serverless real-time updates
   useEffect(() => {
@@ -41,8 +43,10 @@ export default function LobbyArena({ contestCode, onBack }) {
       try {
         const updated = await api.getContest(contestCode);
         setContest(updated);
-        const msgs = await api.getMessages(contest.id);
-        setMessages(msgs);
+        try {
+          const msgs = await api.getMessages(contest.id);
+          setMessages(msgs || []);
+        } catch (e) {}
       } catch (e) {}
     }, 6000);
 
@@ -58,8 +62,12 @@ export default function LobbyArena({ contestCode, onBack }) {
       if (!data.isPrivate) {
         setIsPasswordUnlocked(true);
       }
-      const msgs = await api.getMessages(data.id);
-      setMessages(msgs);
+      try {
+        const msgs = await api.getMessages(data.id);
+        setMessages(msgs || []);
+      } catch (e) {
+        setMessages([]);
+      }
     } catch (err) {
       setError(err.message || 'Could not load contest lobby.');
     } finally {
@@ -354,7 +362,7 @@ export default function LobbyArena({ contestCode, onBack }) {
             }}>
               <strong>How Submission Verification Works:</strong>
               <ol style={{ marginLeft: '20px', marginTop: '6px' }}>
-                <li>Register your <strong>LeetCode Username</strong> in the bar below.</li>
+                <li>Type your <strong>LeetCode Username</strong> in the bar below.</li>
                 <li>Click <em>"Solve on LeetCode"</em> on any question to open the problem in LeetCode.</li>
                 <li>Submit your solution on LeetCode until you get an <strong>Accepted (AC)</strong> verdict.</li>
                 <li>Return here and click <strong>"Submit"</strong>. Our AWS Lambda backend queries LeetCode GraphQL in real-time, verifies your AC timestamp, and updates the leaderboard!</li>
@@ -431,12 +439,11 @@ export default function LobbyArena({ contestCode, onBack }) {
                     key={prob.titleSlug || idx}
                     index={idx + 1}
                     problem={prob}
-                    isLocked={contest.status === 'WAITING'}
-                    isSolved={!!userSolve}
-                    solveData={userSolve}
+                    disabled={contest.status === 'WAITING'}
+                    userSolved={!!userSolve}
+                    solvePenalty={userSolve?.penaltyMinutes}
                     contestStatus={contest.status}
                     onVerify={handleVerifyProblem}
-                    isVerifying={verifyingSlug === prob.titleSlug}
                   />
                 );
               })}
