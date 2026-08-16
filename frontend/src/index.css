@@ -121,6 +121,28 @@ body {
   background-attachment: fixed;
 }
 
+/* App Container & Sticky Footer Layout */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.main-content {
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    padding: 14px 12px 40px;
+  }
+}
+
 /* Container */
 .container {
   width: 100%;
