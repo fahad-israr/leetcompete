@@ -6,8 +6,8 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   // 'login' | 'register' | 'verify' | 'forgot' | 'reset'
   const [view, setView] = useState('login');
   
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState(''); // Email or Username for Login
+  const [email, setEmail] = useState(''); // Email for Register
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   
@@ -40,19 +40,27 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     setSuccessMsg('');
   };
 
-  // 1. Submit Registration
+  // 1. Submit Registration (Email & Password Only Required)
   const handleRegister = async (e) => {
     e.preventDefault();
-    if (!username.trim()) return setError('Please enter a username.');
-    if (!password) return setError('Please enter a password.');
+    if (!email.trim() || !email.includes('@')) {
+      return setError('Please enter a valid email address.');
+    }
+    if (!password || password.length < 6) {
+      return setError('Password must be at least 6 characters long.');
+    }
 
     resetMessages();
     setIsLoading(true);
 
     try {
-      const res = await api.register(username.trim(), email.trim(), password, displayName.trim());
+      const res = await api.register({
+        email: email.trim(),
+        password,
+        displayName: displayName.trim() || undefined
+      });
       if (res.requiresVerification) {
-        setPendingUsername(username.trim().toLowerCase());
+        setPendingUsername(res.username || email.trim().toLowerCase());
         setPendingEmail(email.trim());
         setView('verify');
         setSuccessMsg(`Verification code sent to ${email.trim()}.`);
@@ -68,27 +76,30 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     }
   };
 
-  // 2. Submit Login
+  // 2. Submit Login (Email OR Username + Password)
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!username.trim() || !password) return setError('Username and password are required.');
+    if (!identifier.trim() || !password) {
+      return setError('Email/Username and password are required.');
+    }
 
     resetMessages();
     setIsLoading(true);
 
     try {
-      const res = await api.login(username.trim(), password);
+      const res = await api.login(identifier.trim(), password);
       if (res.user) {
         onAuthSuccess(res.user);
         onClose();
       }
     } catch (err) {
       if (err.message?.includes('verify your email')) {
-        setPendingUsername(username.trim().toLowerCase());
+        setPendingUsername(identifier.trim().toLowerCase());
+        setPendingEmail(identifier.trim());
         setView('verify');
         setError('Please enter the verification code sent to your email.');
       } else {
-        setError(err.message || 'Invalid username or password.');
+        setError(err.message || 'Invalid email/username or password.');
       }
     } finally {
       setIsLoading(false);
@@ -106,7 +117,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     setIsLoading(true);
 
     try {
-      const res = await api.verifyEmail(pendingUsername, otpCode.trim());
+      const res = await api.verifyEmail(pendingUsername || pendingEmail, otpCode.trim());
       if (res.user) {
         onAuthSuccess(res.user);
         onClose();
@@ -125,7 +136,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     setIsLoading(true);
 
     try {
-      const res = await api.resendCode(pendingUsername);
+      const res = await api.resendCode(pendingUsername || pendingEmail);
       setSuccessMsg(res.message || 'New verification code sent!');
       setCooldown(60);
     } catch (err) {
@@ -138,18 +149,16 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   // 5. Submit Forgot Password
   const handleForgotPassword = async (e) => {
     e.preventDefault();
-    if (!username.trim() && !email.trim()) return setError('Enter your username or email.');
+    if (!identifier.trim()) return setError('Enter your email or username.');
 
     resetMessages();
     setIsLoading(true);
 
     try {
-      const target = email.trim() || username.trim();
-      const res = await api.forgotPassword(target);
-      setPendingUsername(res.username || target);
+      const res = await api.forgotPassword(identifier.trim());
+      setPendingUsername(res.username || identifier.trim());
       setView('reset');
-      setSuccessMsg(res.message || 'Password reset code sent to your email.');
-      setCooldown(60);
+      setSuccessMsg('Reset code sent to your email address.');
     } catch (err) {
       setError(err.message || 'Failed to send reset code.');
     } finally {
@@ -157,19 +166,23 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     }
   };
 
-  // 6. Submit Reset Password
+  // 6. Submit Password Reset
   const handleResetPassword = async (e) => {
     e.preventDefault();
-    if (!resetCode.trim() || !newPassword) return setError('All fields are required.');
+    if (!resetCode.trim() || resetCode.trim().length !== 6) {
+      return setError('Please enter the 6-digit reset code.');
+    }
+    if (!newPassword || newPassword.length < 6) {
+      return setError('New password must be at least 6 characters.');
+    }
 
     resetMessages();
     setIsLoading(true);
 
     try {
-      const res = await api.resetPassword(pendingUsername, resetCode.trim(), newPassword);
-      setSuccessMsg(res.message);
+      await api.resetPassword(pendingUsername, resetCode.trim(), newPassword);
       setView('login');
-      setPassword('');
+      setSuccessMsg('Password reset successful! Please sign in with your new password.');
     } catch (err) {
       setError(err.message || 'Password reset failed.');
     } finally {
@@ -181,31 +194,47 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
         
-        {/* Modal Header */}
+        {/* Header */}
         <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {view === 'login' && <LogIn size={20} color="var(--accent-primary)" />}
-            {view === 'register' && <UserPlus size={20} color="var(--accent-primary)" />}
-            {view === 'verify' && <ShieldCheck size={20} color="var(--color-easy)" />}
-            {(view === 'forgot' || view === 'reset') && <KeyRound size={20} color="var(--accent-primary)" />}
-
-            <h3 style={{ fontSize: '1.15rem', fontWeight: '800' }}>
-              {view === 'login' && 'Sign In to LeetCompete'}
-              {view === 'register' && 'Create Account'}
-              {view === 'verify' && 'Verify Your Email'}
-              {view === 'forgot' && 'Reset Password'}
-              {view === 'reset' && 'Enter New Password'}
-            </h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover))',
+              width: '36px',
+              height: '36px',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 0 12px var(--accent-orange-glow)'
+            }}>
+              {view === 'verify' ? <ShieldCheck size={18} color="#fff" /> : <KeyRound size={18} color="#fff" />}
+            </div>
+            <div>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0 }}>
+                {view === 'login' && 'Organizer Sign In'}
+                {view === 'register' && 'Create Organizer Account'}
+                {view === 'verify' && 'Verify Email Address'}
+                {view === 'forgot' && 'Reset Password'}
+                {view === 'reset' && 'Set New Password'}
+              </h3>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                {view === 'login' && 'Manage your seasons & custom contest tracks'}
+                {view === 'register' && 'Only email & password needed to get started'}
+                {view === 'verify' && 'Check your inbox for 6-digit OTP code'}
+                {view === 'forgot' && 'We will send a reset code to your email'}
+                {view === 'reset' && 'Enter reset code and choose a new password'}
+              </div>
+            </div>
           </div>
           <button
             onClick={onClose}
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
           >
             <X size={20} />
           </button>
         </div>
 
-        {/* Tab switcher (Only on login / register views) */}
+        {/* Modal Navigation Tabs (Sign In / Create Account) */}
         {(view === 'login' || view === 'register') && (
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-input)' }}>
             <button
@@ -219,11 +248,15 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                 borderBottom: view === 'login' ? '2px solid var(--accent-primary)' : 'none',
                 color: view === 'login' ? 'var(--accent-primary)' : 'var(--text-muted)',
                 fontWeight: '700',
-                fontSize: '0.875rem',
-                cursor: 'pointer'
+                fontSize: '0.9rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
               }}
             >
-              Sign In
+              <LogIn size={15} /> Sign In
             </button>
             <button
               type="button"
@@ -236,26 +269,30 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                 borderBottom: view === 'register' ? '2px solid var(--accent-primary)' : 'none',
                 color: view === 'register' ? 'var(--accent-primary)' : 'var(--text-muted)',
                 fontWeight: '700',
-                fontSize: '0.875rem',
-                cursor: 'pointer'
+                fontSize: '0.9rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
               }}
             >
-              Create Account
+              <UserPlus size={15} /> Create Account
             </button>
           </div>
         )}
 
-        {/* Modal Body */}
         <div className="modal-body">
+          {/* Notifications */}
           {error && (
             <div style={{
-              background: 'rgba(239, 68, 68, 0.12)',
-              border: '1px solid rgba(239, 68, 68, 0.35)',
+              background: 'rgba(244, 63, 94, 0.12)',
+              border: '1px solid rgba(244, 63, 94, 0.35)',
               borderRadius: 'var(--radius-md)',
               padding: '10px 14px',
               marginBottom: '16px',
               fontSize: '0.85rem',
-              color: 'var(--color-hard)',
+              color: '#fb7185',
               display: 'flex',
               alignItems: 'center',
               gap: '8px'
@@ -288,14 +325,14 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             <form onSubmit={handleLogin}>
               <div className="form-group">
                 <label className="form-label">
-                  <User size={13} style={{ display: 'inline', marginRight: '4px' }} />
-                  LeetCode Username / Handle
+                  <Mail size={13} style={{ display: 'inline', marginRight: '4px' }} />
+                  Email Address or Username
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. neetcode"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="e.g. you@example.com or username"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   className="form-input"
                   autoFocus
                   required
@@ -329,7 +366,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
 
               <button
                 type="submit"
-                disabled={isLoading || !username.trim() || !password}
+                disabled={isLoading || !identifier.trim() || !password}
                 className="btn btn-primary"
                 style={{ width: '100%', padding: '12px' }}
               >
@@ -338,41 +375,44 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             </form>
           )}
 
-          {/* VIEW 2: CREATE ACCOUNT */}
+          {/* VIEW 2: CREATE ACCOUNT (Email + Password Only Required) */}
           {view === 'register' && (
             <form onSubmit={handleRegister}>
               <div className="form-group">
                 <label className="form-label">
-                  <User size={13} style={{ display: 'inline', marginRight: '4px' }} />
-                  LeetCode Username / Handle
+                  <Mail size={13} style={{ display: 'inline', marginRight: '4px' }} />
+                  Email Address *
                 </label>
                 <input
-                  type="text"
-                  placeholder="e.g. neetcode"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  type="email"
+                  placeholder="e.g. you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="form-input"
                   autoFocus
                   required
                 />
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '2px', display: 'block' }}>
+                  A 6-digit verification code will be sent to this email.
+                </span>
               </div>
 
               <div className="form-group">
                 <label className="form-label">
-                  <Mail size={13} style={{ display: 'inline', marginRight: '4px' }} />
-                  Email Address (For Verification & Password Recovery)
+                  <Lock size={13} style={{ display: 'inline', marginRight: '4px' }} />
+                  Password *
                 </label>
                 <input
-                  type="email"
-                  placeholder="e.g. user@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  type="password"
+                  placeholder="At least 6 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="form-input"
                   required
                 />
               </div>
 
-              <div className="form-group">
+              <div className="form-group" style={{ marginBottom: '20px' }}>
                 <label className="form-label">
                   Display Name (Optional)
                 </label>
@@ -385,79 +425,45 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                 />
               </div>
 
-              <div className="form-group" style={{ marginBottom: '20px' }}>
-                <label className="form-label">
-                  <Lock size={13} style={{ display: 'inline', marginRight: '4px' }} />
-                  Password
-                </label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="form-input"
-                  required
-                />
-              </div>
-
               <button
                 type="submit"
-                disabled={isLoading || !username.trim() || !password || !email.trim()}
+                disabled={isLoading || !email.trim() || !password}
                 className="btn btn-primary"
                 style={{ width: '100%', padding: '12px' }}
               >
-                {isLoading ? 'Creating Account...' : <>Send Verification Code <ArrowRight size={16} /></>}
+                {isLoading ? 'Creating Account...' : <>Create Account <ArrowRight size={16} /></>}
               </button>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', marginTop: '12px', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                <ShieldCheck size={13} color="var(--color-easy)" />
-                <span>Rate limited to 10 verification requests per 12 hours.</span>
-              </div>
             </form>
           )}
 
-          {/* VIEW 3: 6-DIGIT OTP VERIFICATION SCREEN */}
+          {/* VIEW 3: 6-DIGIT EMAIL OTP VERIFICATION */}
           {view === 'verify' && (
             <form onSubmit={handleVerifyCode}>
               <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                <div style={{
-                  background: 'var(--accent-primary-light)',
-                  width: '54px',
-                  height: '54px',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 12px'
-                }}>
-                  <Mail size={26} color="var(--accent-primary)" />
-                </div>
-                <h4 style={{ fontSize: '1.05rem', fontWeight: '700', marginBottom: '4px' }}>
-                  Check Your Inbox
-                </h4>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  We sent a 6-digit code to <strong>{pendingEmail || `@${pendingUsername}`}</strong>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                  Enter the 6-digit verification code sent to:
                 </p>
+                <div style={{ fontWeight: '700', color: 'var(--accent-primary)', fontSize: '0.95rem', marginTop: '2px' }}>
+                  {pendingEmail || pendingUsername}
+                </div>
               </div>
 
               <div className="form-group" style={{ marginBottom: '20px' }}>
-                <label className="form-label" style={{ textAlign: 'center' }}>
-                  Enter 6-Digit Code
-                </label>
                 <input
                   type="text"
-                  placeholder="123456"
                   maxLength={6}
+                  placeholder="123456"
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
                   className="form-input"
                   style={{
+                    fontSize: '1.6rem',
+                    letterSpacing: '8px',
                     textAlign: 'center',
-                    fontSize: '1.8rem',
-                    letterSpacing: '10px',
                     fontFamily: 'var(--font-mono)',
                     fontWeight: '800',
-                    color: 'var(--accent-primary)'
+                    color: 'var(--accent-primary)',
+                    padding: '12px'
                   }}
                   autoFocus
                   required
@@ -466,26 +472,26 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
 
               <button
                 type="submit"
-                disabled={isLoading || otpCode.length !== 6}
+                disabled={isLoading || otpCode.trim().length !== 6}
                 className="btn btn-primary"
-                style={{ width: '100%', padding: '12px', marginBottom: '12px' }}
+                style={{ width: '100%', padding: '12px', marginBottom: '14px' }}
               >
-                {isLoading ? 'Verifying...' : 'Verify & Log In'}
+                {isLoading ? 'Verifying...' : 'Verify & Continue'}
               </button>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.825rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem' }}>
                 <button
                   type="button"
-                  onClick={() => { setView('register'); resetMessages(); }}
+                  onClick={() => { setView('login'); resetMessages(); }}
                   style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer' }}
                 >
-                  ← Change Email
+                  ← Back to Sign In
                 </button>
 
                 <button
                   type="button"
+                  disabled={cooldown > 0 || isLoading}
                   onClick={handleResendCode}
-                  disabled={isLoading || cooldown > 0}
                   style={{
                     background: 'none',
                     border: 'none',
@@ -497,8 +503,8 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                     gap: '4px'
                   }}
                 >
-                  <RotateCcw size={13} />
-                  {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend Code'}
+                  <RotateCcw size={12} />
+                  {cooldown > 0 ? `Resend Code (${cooldown}s)` : 'Resend Code'}
                 </button>
               </div>
             </form>
@@ -509,13 +515,14 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             <form onSubmit={handleForgotPassword}>
               <div className="form-group" style={{ marginBottom: '20px' }}>
                 <label className="form-label">
-                  Your Username or Verified Email
+                  <Mail size={13} style={{ display: 'inline', marginRight: '4px' }} />
+                  Enter your Email Address or Username
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. neetcode or user@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="e.g. you@example.com"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   className="form-input"
                   autoFocus
                   required
@@ -524,18 +531,18 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
 
               <button
                 type="submit"
-                disabled={isLoading || !email.trim()}
+                disabled={isLoading || !identifier.trim()}
                 className="btn btn-primary"
-                style={{ width: '100%', padding: '12px', marginBottom: '12px' }}
+                style={{ width: '100%', padding: '12px', marginBottom: '14px' }}
               >
-                {isLoading ? 'Sending Code...' : 'Send Password Reset Code'}
+                {isLoading ? 'Sending...' : 'Send Reset Code'}
               </button>
 
               <div style={{ textAlign: 'center' }}>
                 <button
                   type="button"
                   onClick={() => { setView('login'); resetMessages(); }}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.825rem', cursor: 'pointer' }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-dim)', fontSize: '0.8rem', cursor: 'pointer' }}
                 >
                   ← Back to Sign In
                 </button>
@@ -547,17 +554,21 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           {view === 'reset' && (
             <form onSubmit={handleResetPassword}>
               <div className="form-group">
-                <label className="form-label">
-                  6-Digit Reset Code (From Email)
-                </label>
+                <label className="form-label">6-Digit Reset Code</label>
                 <input
                   type="text"
-                  placeholder="123456"
                   maxLength={6}
+                  placeholder="123456"
                   value={resetCode}
-                  onChange={(e) => setResetCode(e.target.value)}
+                  onChange={(e) => setResetCode(e.target.value.replace(/[^0-9]/g, ''))}
                   className="form-input"
-                  style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '1.2rem', letterSpacing: '4px' }}
+                  style={{
+                    fontSize: '1.4rem',
+                    letterSpacing: '6px',
+                    textAlign: 'center',
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: '700'
+                  }}
                   autoFocus
                   required
                 />
@@ -565,11 +576,12 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
 
               <div className="form-group" style={{ marginBottom: '20px' }}>
                 <label className="form-label">
+                  <Lock size={13} style={{ display: 'inline', marginRight: '4px' }} />
                   New Password
                 </label>
                 <input
                   type="password"
-                  placeholder="••••••••"
+                  placeholder="At least 6 characters"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="form-input"
@@ -579,15 +591,24 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
 
               <button
                 type="submit"
-                disabled={isLoading || !resetCode.trim() || !newPassword}
+                disabled={isLoading || resetCode.trim().length !== 6 || !newPassword}
                 className="btn btn-primary"
-                style={{ width: '100%', padding: '12px', marginBottom: '12px' }}
+                style={{ width: '100%', padding: '12px', marginBottom: '14px' }}
               >
-                {isLoading ? 'Updating Password...' : 'Save New Password & Sign In'}
+                {isLoading ? 'Updating...' : 'Set New Password'}
               </button>
+
+              <div style={{ textAlign: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => { setView('login'); resetMessages(); }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-dim)', fontSize: '0.8rem', cursor: 'pointer' }}
+                >
+                  ← Back to Sign In
+                </button>
+              </div>
             </form>
           )}
-
         </div>
       </div>
     </div>

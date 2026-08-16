@@ -40,12 +40,18 @@ async function handleResponse(res) {
 
 export const api = {
   // === AUTHENTICATION & EMAIL VERIFICATION ===
-  async register(username, email, password, displayName = '') {
+  async register(arg1, arg2, arg3, arg4) {
+    let payload = {};
+    if (typeof arg1 === 'object' && arg1 !== null) {
+      payload = { ...arg1 };
+    } else {
+      payload = { username: arg1, email: arg2, password: arg3, displayName: arg4 };
+    }
     const clientMachineId = getClientMachineId();
     const res = await fetch(`${API_BASE}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, email, password, displayName, clientMachineId })
+      body: JSON.stringify({ ...payload, clientMachineId })
     });
     const data = await handleResponse(res);
     if (data.token && data.user) {
@@ -100,11 +106,11 @@ export const api = {
     return await handleResponse(res);
   },
 
-  async login(username, password) {
+  async login(identifier, password) {
     const res = await fetch(`${API_BASE}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ username: identifier, email: identifier, identifier, password })
     });
     const data = await handleResponse(res);
     if (data.token && data.user) {

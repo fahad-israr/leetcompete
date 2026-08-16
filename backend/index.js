@@ -327,37 +327,66 @@ exports.handler = async (event) => {
     // === AUTHENTICATION & EMAIL VERIFICATION ENDPOINTS ===
     
     // 1. Register with Email Verification & Rate Limiting
+    // 1. Register User (Email + Password only required; username auto-derived from email if omitted)
     if (path === '/api/auth/register' && httpMethod === 'POST') {
-      const { username, email, password, displayName, clientMachineId } = body;
-      if (!username || !username.trim() || username.trim().length < 2) {
-        return jsonResponse(400, { success: false, error: 'Username must be at least 2 characters.' });
+      const { email, password, username, displayName } = body;
+      
+      if (!email || !email.trim() || !email.includes('@')) {
+        return jsonResponse(400, { success: false, error: 'A valid email address is required.' });
       }
-      if (!password || password.length < 3) {
-        return jsonResponse(400, { success: false, error: 'Password must be at least 3 characters.' });
+      if (!password || password.length < 6) {
+        return jsonResponse(400, { success: false, error: 'Password must be at least 6 characters long.' });
       }
 
-      const cleanUsername = username.trim().toLowerCase();
-      const cleanEmail = email ? email.trim().toLowerCase() : null;
+      const cleanEmail = email.trim().toLowerCase();
+      
+      // Auto-derive clean username from email prefix if omitted
+      let baseUsername = (username && username.trim()) 
+        ? username.trim().toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '')
+        : cleanEmail.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '');
+      
+      if (!baseUsername || baseUsername.length < 2) {
+        baseUsername = `user_${Date.now().toString(36)}`;
+      }
 
-      // Check if user already exists
-      const existing = await docClient.send(new GetCommand({
+      // Check if email already registered and verified
+      const emailScan = await docClient.send(new ScanCommand({
         TableName: USERS_TABLE,
-        Key: { username: cleanUsername }
+        FilterExpression: 'email = :em',
+        ExpressionAttributeValues: { ':em': cleanEmail }
       }));
 
-      if (existing.Item && existing.Item.isVerified) {
-        return jsonResponse(400, { success: false, error: `Username "${cleanUsername}" is already taken.` });
+      if (emailScan.Items && emailScan.Items.length > 0) {
+        const existingEmailUser = emailScan.Items[0];
+        if (existingEmailUser.isVerified) {
+          return jsonResponse(400, { success: false, error: 'This email is already registered. Please sign in or reset your password.' });
+        }
+        // If unverified, reuse this username
+        baseUsername = existingEmailUser.username;
+      } else {
+        // Ensure unique username
+        let cleanUsername = baseUsername;
+        let counter = 1;
+        while (true) {
+          const uRes = await docClient.send(new GetCommand({
+            TableName: USERS_TABLE,
+            Key: { username: cleanUsername }
+          }));
+          if (!uRes.Item || !uRes.Item.isVerified) {
+            break;
+          }
+          cleanUsername = `${baseUsername}${counter++}`;
+        }
+        baseUsername = cleanUsername;
       }
 
       const clientKey = getClientIdentifier(event, body);
       const now = Math.floor(Date.now() / 1000);
 
       // Check Rate Limits: Email (10 per 12h) and Client Machine ID (10 per 12h)
-      if (cleanEmail) {
-        const emailRate = await checkRateLimit(`rate#email#${cleanEmail}`, 10, 12);
-        if (!emailRate.allowed) {
-          return jsonResponse(429, { success: false, error: emailRate.error });
-        }
+      const emailRate = await checkRateLimit(`rate#email#${cleanEmail}`, 10, 12);
+      if (!emailRate.allowed) {
+        return jsonResponse(429, { success: false, error: emailRate.error });
       }
 
       const clientRate = await checkRateLimit(`rate#client#${clientKey}`, 10, 12);
@@ -369,14 +398,14 @@ exports.handler = async (event) => {
       const otpCode = generateNumericOTP(6);
 
       const newUser = {
-        username: cleanUsername,
+        username: baseUsername,
         email: cleanEmail,
-        displayName: (displayName || username).trim(),
+        displayName: displayName ? displayName.trim() : baseUsername,
         passwordHash: hash,
         salt,
-        isVerified: !cleanEmail, // Auto-verified if no email provided, else requires verification
-        verificationCode: cleanEmail ? otpCode : null,
-        verificationCodeExpiresAt: cleanEmail ? now + (15 * 60) : null,
+        isVerified: false,
+        verificationCode: otpCode,
+        verificationCodeExpiresAt: now + (15 * 60),
         createdAt: now
       };
 
@@ -385,44 +414,46 @@ exports.handler = async (event) => {
         Item: newUser
       }));
 
-      // Send Verification Email via Resend if email provided
-      if (cleanEmail) {
-        await sendVerificationEmail(cleanEmail, otpCode, newUser.username, 'verification');
-        return jsonResponse(200, {
-          success: true,
-          requiresVerification: true,
-          email: cleanEmail,
-          message: `Verification code sent to ${cleanEmail}.`
-        });
-      }
-
-      // If no email, issue token immediately
-      const token = generateUserToken(newUser);
+      // Send Verification Email via Resend
+      await sendVerificationEmail(cleanEmail, otpCode, newUser.username, 'verification');
       return jsonResponse(200, {
         success: true,
-        requiresVerification: false,
-        token,
-        user: { username: newUser.username, displayName: newUser.displayName, isVerified: true }
+        requiresVerification: true,
+        username: baseUsername,
+        email: cleanEmail,
+        message: `Verification code sent to ${cleanEmail}.`
       });
     }
 
     // 2. Verify Email OTP Code
     if (path === '/api/auth/verify-email' && httpMethod === 'POST') {
-      const { username, code } = body;
-      if (!username || !code) {
-        return jsonResponse(400, { success: false, error: 'Username and 6-digit verification code are required.' });
+      const { username, email, code } = body;
+      const target = (username || email || '').trim().toLowerCase();
+      if (!target || !code) {
+        return jsonResponse(400, { success: false, error: 'Email/Username and 6-digit verification code are required.' });
       }
 
-      const cleanUsername = username.trim().toLowerCase();
       const cleanCode = code.trim();
       const now = Math.floor(Date.now() / 1000);
 
+      let user = null;
       const res = await docClient.send(new GetCommand({
         TableName: USERS_TABLE,
-        Key: { username: cleanUsername }
+        Key: { username: target }
       }));
+      if (res.Item) {
+        user = res.Item;
+      } else {
+        const scanRes = await docClient.send(new ScanCommand({
+          TableName: USERS_TABLE,
+          FilterExpression: 'email = :em',
+          ExpressionAttributeValues: { ':em': target }
+        }));
+        if (scanRes.Items && scanRes.Items.length > 0) {
+          user = scanRes.Items[0];
+        }
+      }
 
-      const user = res.Item;
       if (!user) {
         return jsonResponse(404, { success: false, error: 'User account not found.' });
       }
@@ -465,18 +496,30 @@ exports.handler = async (event) => {
 
     // 3. Resend Verification Code (Rate-limited to 10 per 12 hours)
     if (path === '/api/auth/resend-code' && httpMethod === 'POST') {
-      const { username } = body;
-      if (!username) {
-        return jsonResponse(400, { success: false, error: 'Username is required.' });
+      const { username, email } = body;
+      const target = (username || email || '').trim().toLowerCase();
+      if (!target) {
+        return jsonResponse(400, { success: false, error: 'Email or username is required.' });
       }
 
-      const cleanUsername = username.trim().toLowerCase();
+      let user = null;
       const res = await docClient.send(new GetCommand({
         TableName: USERS_TABLE,
-        Key: { username: cleanUsername }
+        Key: { username: target }
       }));
+      if (res.Item) {
+        user = res.Item;
+      } else {
+        const scanRes = await docClient.send(new ScanCommand({
+          TableName: USERS_TABLE,
+          FilterExpression: 'email = :em',
+          ExpressionAttributeValues: { ':em': target }
+        }));
+        if (scanRes.Items && scanRes.Items.length > 0) {
+          user = scanRes.Items[0];
+        }
+      }
 
-      const user = res.Item;
       if (!user) return jsonResponse(404, { success: false, error: 'User not found.' });
       if (user.isVerified) return jsonResponse(400, { success: false, error: 'User is already verified.' });
       if (!user.email) return jsonResponse(400, { success: false, error: 'No email associated with this account.' });
@@ -493,7 +536,7 @@ exports.handler = async (event) => {
 
       await docClient.send(new UpdateCommand({
         TableName: USERS_TABLE,
-        Key: { username: cleanUsername },
+        Key: { username: user.username },
         UpdateExpression: 'SET verificationCode = :c, verificationCodeExpiresAt = :exp',
         ExpressionAttributeValues: {
           ':c': newOtp,
@@ -509,27 +552,41 @@ exports.handler = async (event) => {
       });
     }
 
-    // 4. Login
+    // 4. Login (Supports Email OR Username + Password)
     if (path === '/api/auth/login' && httpMethod === 'POST') {
-      const { username, password } = body;
-      if (!username || !password) {
-        return jsonResponse(400, { success: false, error: 'Username and password are required.' });
+      const { username, email, identifier, password } = body;
+      const target = (username || email || identifier || '').trim().toLowerCase();
+      if (!target || !password) {
+        return jsonResponse(400, { success: false, error: 'Email/Username and password are required.' });
       }
 
-      const cleanUsername = username.trim().toLowerCase();
+      let user = null;
+      // Direct username lookup
       const res = await docClient.send(new GetCommand({
         TableName: USERS_TABLE,
-        Key: { username: cleanUsername }
+        Key: { username: target }
       }));
+      if (res.Item) {
+        user = res.Item;
+      } else {
+        // Lookup by email
+        const scanRes = await docClient.send(new ScanCommand({
+          TableName: USERS_TABLE,
+          FilterExpression: 'email = :em',
+          ExpressionAttributeValues: { ':em': target }
+        }));
+        if (scanRes.Items && scanRes.Items.length > 0) {
+          user = scanRes.Items[0];
+        }
+      }
 
-      const user = res.Item;
       if (!user) {
-        return jsonResponse(401, { success: false, error: 'Invalid username or password.' });
+        return jsonResponse(401, { success: false, error: 'Invalid email/username or password.' });
       }
 
       const isValid = verifyPassword(password, user.passwordHash, user.salt);
       if (!isValid) {
-        return jsonResponse(401, { success: false, error: 'Invalid username or password.' });
+        return jsonResponse(401, { success: false, error: 'Invalid email/username or password.' });
       }
 
       if (user.email && user.isVerified === false) {
