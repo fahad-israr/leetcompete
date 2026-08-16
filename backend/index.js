@@ -928,15 +928,14 @@ exports.handler = async (event) => {
       const {
         title,
         seasonId,
-        durationMinutes = 90,
+        durationMinutes = 60,
+        countEasy = 1,
+        countMedium = 2,
+        countHard = 1,
         hostUsername = authUser?.username || 'Host',
         password = '',
         problems = []
       } = body;
-
-      if (!title || !title.trim()) {
-        return jsonResponse(400, { success: false, error: 'Contest title is required.' });
-      }
 
       let selectedProblems = problems;
       let seasonInfo = null;
@@ -960,31 +959,52 @@ exports.handler = async (event) => {
           const gen = generateRandomRoundFromPool({
             pool: seasonInfo.pool || PROBLEM_CATALOG,
             usedSlugs,
-            countTotal: 6
+            countEasy: Number(countEasy) || 1,
+            countMedium: Number(countMedium) || 2,
+            countHard: Number(countHard) || 1,
+            countTotal: (Number(countEasy) || 1) + (Number(countMedium) || 2) + (Number(countHard) || 1)
           });
           selectedProblems = gen.problems;
         }
       }
 
       if (!selectedProblems || selectedProblems.length === 0) {
-        selectedProblems = PROBLEM_CATALOG.slice(0, 4);
+        const easy = PROBLEM_CATALOG.filter(p => p.difficulty === 'Easy').sort(() => 0.5 - Math.random()).slice(0, Number(countEasy) || 1);
+        const med = PROBLEM_CATALOG.filter(p => p.difficulty === 'Medium').sort(() => 0.5 - Math.random()).slice(0, Number(countMedium) || 2);
+        const hard = PROBLEM_CATALOG.filter(p => p.difficulty === 'Hard').sort(() => 0.5 - Math.random()).slice(0, Number(countHard) || 1);
+        selectedProblems = [...easy, ...med, ...hard].map((p, idx) => ({ ...p, points: (idx + 1) * 100 }));
       }
 
       const contestCode = generateCode(5);
       const contestId = `contest_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
       const now = Math.floor(Date.now() / 1000);
 
+      // Auto-generate organized title if omitted
+      const nowObj = new Date();
+      const dateStr = nowObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const timeStr = nowObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+      
+      let finalTitle = (title && title.trim()) ? title.trim() : null;
+      if (!finalTitle) {
+        if (seasonInfo) {
+          const roundNum = (seasonInfo.contestIds?.length || 0) + 1;
+          finalTitle = `${seasonInfo.title} — Round #${roundNum}`;
+        } else {
+          finalTitle = `LeetCompete Match • ${dateStr}, ${timeStr} UTC`;
+        }
+      }
+
       const newContest = {
         id: contestId,
         code: contestCode,
-        title: title.trim(),
+        title: finalTitle,
         seasonId: seasonId || null,
         seasonTitle: seasonInfo ? seasonInfo.title : null,
         seasonRound: seasonInfo ? (seasonInfo.contestIds?.length || 0) + 1 : null,
         ownerUsername: authUser?.username || hostUsername.toLowerCase(),
         hostUsername: hostUsername.trim(),
         password: (password || '').trim(),
-        durationMinutes: Number(durationMinutes) || 90,
+        durationMinutes: Number(durationMinutes) || 60,
         status: 'WAITING',
         startTime: null,
         endTime: null,

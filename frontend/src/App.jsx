@@ -55,7 +55,12 @@ export default function App() {
   };
 
   const handleContestCreated = (contest) => {
-    handleSelectContest(contest.code);
+    if (contest && contest.code) {
+      handleSelectContest(contest.code);
+    } else {
+      console.warn('Contest created with missing code:', contest);
+      setActiveView('home');
+    }
   };
 
   const handleOpenCreateContestForSeason = (seasonId) => {
@@ -125,12 +130,26 @@ export default function App() {
           />
         )}
 
-        {activeView === 'arena' && activeContestCode && (
-          <LobbyArena
-            contestCode={activeContestCode}
-            onBack={handleBackToHome}
-            currentUser={currentUser}
-          />
+        {activeView === 'arena' && (
+          activeContestCode ? (
+            <LobbyArena
+              contestCode={activeContestCode}
+              onBack={handleBackToHome}
+              currentUser={currentUser}
+            />
+          ) : (
+            <Home
+              onSelectContest={handleSelectContest}
+              onOpenCreateContest={() => {
+                setCreateContestSeasonId(null);
+                setIsCreateContestOpen(true);
+              }}
+              onOpenCreateSeason={() => setIsCreateSeasonOpen(true)}
+              onNavigateSeasons={() => setActiveView('seasons')}
+              onOpenAuthModal={() => setIsAuthModalOpen(true)}
+              currentUser={currentUser}
+            />
+          )
         )}
       </main>
 

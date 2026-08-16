@@ -99,12 +99,15 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
         problems: finalProblems
       });
 
-      if (hostUsername.trim()) {
-        localStorage.setItem('leetcompete_username', hostUsername.trim().toLowerCase());
+      if (contest && contest.code) {
+        if (hostUsername.trim()) {
+          localStorage.setItem('leetcompete_username', hostUsername.trim().toLowerCase());
+        }
+        onContestCreated(contest);
+        onClose();
+      } else {
+        throw new Error('Contest creation did not return a valid lobby code.');
       }
-
-      onContestCreated(contest);
-      onClose();
     } catch (err) {
       setErrorMessage(err.message || 'Failed to create contest');
     } finally {
