@@ -95,7 +95,7 @@ export default function Navbar({
             style={{ padding: '8px 14px', borderRadius: '8px' }}
           >
             <Layers size={17} />
-            Seasons & 150-Pools
+            Seasons & Bundles
           </button>
         </div>
       </div>

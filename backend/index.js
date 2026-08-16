@@ -30,18 +30,15 @@ const MESSAGES_TABLE = process.env.MESSAGES_TABLE || 'leetcompete-messages-dev';
 const ADMIN_PASSCODE = process.env.ADMIN_PASSCODE || 'leetcompete_admin_2026';
 const ALLOWED_ADMIN_EMAILS = (process.env.ALLOWED_ADMIN_EMAILS || 'fahad00cms@gmail.com').split(',').map(e => e.trim().toLowerCase());
 
-// Standard CORS headers for Lambda Function URL
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': '*',
-  'Access-Control-Allow-Headers': '*',
+// Standard response headers (Function URL handles CORS automatically)
+const standardHeaders = {
   'Content-Type': 'application/json'
 };
 
 function jsonResponse(statusCode, data) {
   return {
     statusCode,
-    headers: corsHeaders,
+    headers: standardHeaders,
     body: JSON.stringify(data)
   };
 }
@@ -93,7 +90,7 @@ exports.handler = async (event) => {
   if (event.requestContext?.http?.method === 'OPTIONS' || event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: standardHeaders,
       body: JSON.stringify({ message: 'CORS OK' })
     };
   }

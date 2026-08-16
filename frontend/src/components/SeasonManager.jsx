@@ -102,7 +102,7 @@ export default function SeasonManager({
                 </p>
               )}
 
-              {/* 150-Problem Progress Bar */}
+              {/* Dynamic Curriculum Progress Bar */}
               <div style={{ maxWidth: '650px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px' }}>
                   <span style={{ color: 'var(--text-main)', fontWeight: '600' }}>
@@ -140,7 +140,7 @@ export default function SeasonManager({
                 style={{ width: '100%' }}
               >
                 <Plus size={14} />
-                {remaining > 0 ? `Draw 4-6 from ${remaining} Unused` : 'Season Complete!'}
+                {remaining > 0 ? `Draw Unused (${remaining} Left)` : 'Season Complete!'}
               </button>
             </div>
           </div>
@@ -329,10 +329,10 @@ export default function SeasonManager({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div>
           <h1 style={{ fontSize: '1.8rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '4px' }}>
-            Seasons & 150-Problem Curriculum Leagues
+            Season Problem Bundles & Leagues
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.925rem' }}>
-            Organize multi-round tournaments covering complete 150-problem lists without repeating questions.
+            Organize multi-round tournaments covering complete problem bundles without repeating questions.
           </p>
         </div>
 
@@ -359,7 +359,7 @@ export default function SeasonManager({
           </div>
           <h3 style={{ fontSize: '1.3rem', fontWeight: '700', marginBottom: '8px' }}>No Seasons Created Yet</h3>
           <p style={{ color: 'var(--text-muted)', maxWidth: '480px', margin: '0 auto 20px' }}>
-            Create a season with a 150-problem curriculum to automatically partition problems into sequential, non-repeating rounds!
+            Create a season with a custom problem bundle or list link to automatically partition problems into sequential, non-repeating rounds!
           </p>
           <button onClick={onOpenCreateSeason} className="btn btn-primary">
             <Plus size={16} /> Create First Season

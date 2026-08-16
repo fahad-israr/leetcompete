@@ -70,7 +70,7 @@ export default function Home({
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.35)', padding: '6px 14px', borderRadius: '30px', marginBottom: '16px' }}>
             <Sparkles size={15} color="#60a5fa" />
             <span style={{ fontSize: '0.825rem', fontWeight: '700', color: '#93c5fd', letterSpacing: '0.04em' }}>
-              MULTIPLAYER LEETCODE ARENA & ZERO-REPETITION SEASONS
+              MULTIPLAYER LEETCODE ARENA & ZERO-REPETITION LEAGUES
             </span>
           </div>
 
@@ -84,11 +84,11 @@ export default function Home({
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent'
           }}>
-            Compete, Practice, and Master 150-Problem Lists Together
+            Compete, Practice, and Master Problem Bundles Together
           </h1>
 
           <p style={{ fontSize: '1.1rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '28px' }}>
-            Host public or private LeetCode contests, organize multi-round seasons where problems never repeat, and verify solutions in real-time via LeetCode's public GraphQL API.
+            Host public or private LeetCode contests, organize multi-round seasons from custom problem lists or URLs with zero question repetition, and verify solutions in real-time.
           </p>
 
           {/* Quick Join Bar + Actions */}
@@ -145,10 +145,10 @@ export default function Home({
             <Code2 size={22} color="var(--accent-primary)" />
           </div>
           <h3 style={{ fontSize: '1.15rem', fontWeight: '700', marginBottom: '6px' }}>
-            150-Problem Curriculum
+            Custom Problem Bundles
           </h3>
           <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            Import standard lists like Top Interview 150. Rounds automatically partition problems sequentially with zero duplicates across the season.
+            Import problem lists from LeetCode links or bulk URLs of any size. Rounds automatically partition problems with zero duplicates across the season.
           </p>
         </div>
 
@@ -306,7 +306,7 @@ export default function Home({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <h2 style={{ fontSize: '1.35rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Layers size={20} color="var(--accent-cyan)" />
-              150-Problem Seasons
+              Season Problem Bundles
             </h2>
             <button onClick={onNavigateSeasons} className="btn btn-secondary btn-sm">
               View All
@@ -333,7 +333,7 @@ export default function Home({
                       <span className="badge badge-cyan">{coverage}% Covered</span>
                     </div>
                     <p style={{ fontSize: '0.825rem', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.4 }}>
-                      {s.description || 'Complete non-repeating problem curriculum.'}
+                      {s.description || 'Non-repeating problem curriculum.'}
                     </p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--color-easy)' }}>
                       <ShieldCheck size={14} />

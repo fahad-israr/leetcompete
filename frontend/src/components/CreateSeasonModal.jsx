@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { X, Layers, Plus, Link as LinkIcon, Sparkles, AlertCircle } from 'lucide-react';
+import { X, Layers, Plus, Link as LinkIcon, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
 import { api } from '../services/api';
 
 export default function CreateSeasonModal({ isOpen, onClose, onSeasonCreated }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [poolType, setPoolType] = useState('preset-150'); // 'preset-150' | 'custom-urls'
+  const [poolType, setPoolType] = useState('preset-standard'); // 'preset-standard' | 'custom-urls'
   const [bulkUrls, setBulkUrls] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -29,13 +29,19 @@ export default function CreateSeasonModal({ isOpen, onClose, onSeasonCreated }) 
         const inputs = bulkUrls.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
         const resolved = [];
         for (const input of inputs) {
-          const p = await api.resolveProblem(input);
-          if (p && !resolved.some(r => r.titleSlug === p.titleSlug)) {
-            resolved.push(p);
+          try {
+            const p = await api.resolveProblem(input);
+            if (p && !resolved.some(r => r.titleSlug === p.titleSlug)) {
+              resolved.push(p);
+            }
+          } catch (e) {
+            console.warn(`Could not resolve problem: ${input}`);
           }
         }
         if (resolved.length > 0) {
           pool = resolved;
+        } else {
+          throw new Error('No valid problems could be resolved from the provided URLs or list link.');
         }
       }
 
@@ -59,7 +65,7 @@ export default function CreateSeasonModal({ isOpen, onClose, onSeasonCreated }) 
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: '600px' }}>
+      <div className="modal-content" style={{ maxWidth: '620px' }}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{
@@ -107,7 +113,7 @@ export default function CreateSeasonModal({ isOpen, onClose, onSeasonCreated }) 
               <label className="form-label">Season Title</label>
               <input
                 type="text"
-                placeholder="e.g. Top Interview 150 League"
+                placeholder="e.g. Blind 75 League / Interview Sprint"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="form-input"
@@ -116,9 +122,9 @@ export default function CreateSeasonModal({ isOpen, onClose, onSeasonCreated }) 
             </div>
 
             <div className="form-group">
-              <label className="form-label">Description / League Objective</label>
+              <label className="form-label">Description / Objective</label>
               <textarea
-                placeholder="e.g. 25 rounds covering the complete 150 interview problems with 0% repetition."
+                placeholder="e.g. Multi-round league covering problem sets sequentially with zero question repetition."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="form-textarea"
@@ -128,15 +134,15 @@ export default function CreateSeasonModal({ isOpen, onClose, onSeasonCreated }) 
 
             {/* Problem Pool Ingestion */}
             <div className="form-group">
-              <label className="form-label">Season Problem Pool Curriculum</label>
+              <label className="form-label">Problem Pool Bundle Source</label>
               <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
                 <button
                   type="button"
-                  onClick={() => setPoolType('preset-150')}
-                  className={`btn btn-sm ${poolType === 'preset-150' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setPoolType('preset-standard')}
+                  className={`btn btn-sm ${poolType === 'preset-standard' ? 'btn-primary' : 'btn-secondary'}`}
                   style={{ flex: 1 }}
                 >
-                  <Sparkles size={14} /> Top Interview 150 (Preset)
+                  <Sparkles size={14} /> Standard Problem Catalog
                 </button>
                 <button
                   type="button"
@@ -144,14 +150,17 @@ export default function CreateSeasonModal({ isOpen, onClose, onSeasonCreated }) 
                   className={`btn btn-sm ${poolType === 'custom-urls' ? 'btn-primary' : 'btn-secondary'}`}
                   style={{ flex: 1 }}
                 >
-                  <LinkIcon size={14} /> Bulk Paste URLs
+                  <LinkIcon size={14} /> Import List Link / URLs
                 </button>
               </div>
 
               {poolType === 'custom-urls' && (
                 <div>
+                  <label className="form-label" style={{ fontSize: '0.8rem' }}>
+                    Paste LeetCode problem URLs or slugs (one per line, comma-separated, or paste a list link):
+                  </label>
                   <textarea
-                    placeholder="Paste 10, 50, or 150 LeetCode problem URLs/slugs (one per line)..."
+                    placeholder="https://leetcode.com/problems/two-sum/&#10;https://leetcode.com/problems/add-two-numbers/&#10;https://leetcode.com/problems/trapping-rain-water/"
                     value={bulkUrls}
                     onChange={(e) => setBulkUrls(e.target.value)}
                     className="form-textarea"
@@ -169,7 +178,7 @@ export default function CreateSeasonModal({ isOpen, onClose, onSeasonCreated }) 
               fontSize: '0.825rem',
               color: '#93c5fd'
             }}>
-              ✨ <strong>Zero-Repetition Partitioning:</strong> Once the season starts, rounds will automatically draw 4–6 problems sequentially from this pool until all problems have been covered!
+              ✨ <strong>Zero-Repetition Partitioning:</strong> Contests hosted under this season will automatically draw problems from the unused pool until all problems are covered!
             </div>
           </div>
 
@@ -178,8 +187,17 @@ export default function CreateSeasonModal({ isOpen, onClose, onSeasonCreated }) 
               Cancel
             </button>
             <button type="submit" disabled={isSubmitting || !title.trim()} className="btn btn-primary">
-              <Plus size={16} />
-              {isSubmitting ? 'Creating Season...' : 'Create Season'}
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={15} className="pulse-animation" />
+                  Resolving & Creating...
+                </>
+              ) : (
+                <>
+                  <Plus size={16} />
+                  Create Season
+                </>
+              )}
             </button>
           </div>
         </form>
