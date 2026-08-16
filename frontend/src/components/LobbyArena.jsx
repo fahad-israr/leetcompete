@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, HelpCircle, Share2, Play, CheckCircle2, AlertCircle, Check, UserCheck, Layers, ArrowLeft, Lock, KeyRound } from 'lucide-react';
+import { Trophy, HelpCircle, Share2, Play, CheckCircle2, AlertCircle, Check, UserCheck, Layers, ArrowLeft, Lock, KeyRound, ShieldCheck } from 'lucide-react';
 import Countdown from './Countdown';
 import ProblemCard from './ProblemCard';
 import Leaderboard from './Leaderboard';
@@ -10,8 +10,13 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
   const [contest, setContest] = useState(null);
   const [messages, setMessages] = useState([]);
   const [activeTab, setActiveTab] = useState('questions'); // 'questions' | 'ranking'
+  
+  // Contest Alias & Private LeetCode handle state
+  const [displayName, setDisplayName] = useState('');
+  const [displayNameInput, setDisplayNameInput] = useState('');
   const [username, setUsername] = useState('');
   const [usernameInput, setUsernameInput] = useState('');
+  
   const [passwordInput, setPasswordInput] = useState('');
   const [isPasswordUnlocked, setIsPasswordUnlocked] = useState(false);
   const [passwordError, setPasswordError] = useState('');
@@ -22,10 +27,17 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
 
   useEffect(() => {
     loadContest();
-    const savedUser = currentUser?.username || localStorage.getItem('leetcompete_username') || '';
-    if (savedUser) {
-      setUsername(savedUser);
-      setUsernameInput(savedUser);
+    
+    const savedAlias = localStorage.getItem('leetcompete_display_name') || currentUser?.displayName || '';
+    const savedLC = localStorage.getItem('leetcompete_lc_handle') || localStorage.getItem('leetcompete_username') || '';
+    
+    if (savedAlias) {
+      setDisplayName(savedAlias);
+      setDisplayNameInput(savedAlias);
+    }
+    if (savedLC) {
+      setUsername(savedLC.toLowerCase());
+      setUsernameInput(savedLC);
     }
 
     const savedPass = sessionStorage.getItem(`contest_pass_${contestCode}`);
@@ -81,7 +93,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     setPasswordError('');
 
     try {
-      await api.joinContest(contest.id, username || 'Guest', username || 'Guest', passwordInput.trim());
+      await api.joinContest(contest.id, username || displayName || 'Guest', displayName || username || 'Guest', passwordInput.trim());
       sessionStorage.setItem(`contest_pass_${contestCode}`, passwordInput.trim());
       setIsPasswordUnlocked(true);
       loadContest();
@@ -90,16 +102,23 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     }
   };
 
-  const handleSetUsername = async (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    if (!usernameInput.trim()) return;
-    const clean = usernameInput.trim().toLowerCase();
-    localStorage.setItem('leetcompete_username', clean);
-    setUsername(clean);
+    if (!displayNameInput.trim()) return;
+    
+    const cleanAlias = displayNameInput.trim();
+    const cleanLC = (usernameInput.trim() || cleanAlias).toLowerCase();
+    
+    localStorage.setItem('leetcompete_display_name', cleanAlias);
+    localStorage.setItem('leetcompete_lc_handle', cleanLC);
+    localStorage.setItem('leetcompete_username', cleanLC);
+    
+    setDisplayName(cleanAlias);
+    setUsername(cleanLC);
 
     if (contest?.id) {
       try {
-        await api.joinContest(contest.id, clean, usernameInput.trim(), passwordInput || undefined);
+        await api.joinContest(contest.id, cleanLC, cleanAlias, passwordInput || undefined);
         loadContest();
       } catch (err) {
         console.error('Join error:', err);
@@ -130,7 +149,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
 
   const handleVerifyProblem = async (problemSlug) => {
     if (!username) {
-      throw new Error('Please enter and save your LeetCode username first!');
+      throw new Error('Please set your LeetCode handle in the participant profile bar above!');
     }
     if (!contest?.id) return;
 
@@ -144,7 +163,8 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
   const handleSendMessage = async (text) => {
     if (!contest?.id) return;
     try {
-      const msg = await api.sendMessage(contest.id, username || 'Guest', text);
+      const sender = displayName || username || 'Guest';
+      const msg = await api.sendMessage(contest.id, sender, text);
       setMessages(prev => [...prev, msg]);
     } catch (err) {
       console.error('Send message error:', err);
@@ -362,7 +382,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
             }}>
               <strong>How Submission Verification Works:</strong>
               <ol style={{ marginLeft: '20px', marginTop: '6px' }}>
-                <li>Type your <strong>LeetCode Username</strong> in the bar below.</li>
+                <li>Set your <strong>Display Name</strong> and <strong>LeetCode Handle</strong> in the profile bar below.</li>
                 <li>Click <em>"Solve on LeetCode"</em> on any question to open the problem in LeetCode.</li>
                 <li>Submit your solution on LeetCode until you get an <strong>Accepted (AC)</strong> verdict.</li>
                 <li>Return here and click <strong>"Submit"</strong>. Our AWS Lambda backend queries LeetCode GraphQL in real-time, verifies your AC timestamp, and updates the leaderboard!</li>
@@ -370,45 +390,73 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
             </div>
           )}
 
-          {/* LeetCode Username Banner */}
+          {/* Privacy-Preserving Contest Profile Banner */}
           <div style={{
             background: 'var(--bg-input)',
             border: '1px solid var(--border-color)',
             borderRadius: 'var(--radius-md)',
-            padding: '14px 20px',
-            marginBottom: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '14px',
-            flexWrap: 'wrap'
+            padding: '16px 20px',
+            marginBottom: '24px'
           }}>
-            <span style={{ fontWeight: '600', fontSize: '0.95rem', color: 'var(--text-muted)' }}>
-              Enter LeetCode Username:
-            </span>
-            <form onSubmit={handleSetUsername} style={{ display: 'flex', gap: '8px', flex: '1', maxWidth: '380px' }}>
-              <input
-                type="text"
-                placeholder="e.g. fahad00cms"
-                value={usernameInput}
-                onChange={(e) => setUsernameInput(e.target.value)}
-                className="form-input"
-                style={{ padding: '8px 14px' }}
-              />
-              <button
-                type="submit"
-                className="btn btn-secondary btn-sm"
-                style={{ borderColor: 'var(--accent-primary)', color: 'var(--text-main)' }}
-              >
-                <UserCheck size={14} /> Save
-              </button>
-            </form>
+            <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                <span style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ShieldCheck size={16} color="var(--color-easy)" />
+                  Contest Profile & Privacy
+                </span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--color-easy)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  🔒 LeetCode handles are strictly private and never shown on rankings
+                </span>
+              </div>
 
-            {username && (
-              <span style={{ fontSize: '0.85rem', color: 'var(--color-easy)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <CheckCircle2 size={14} /> Active: @{username}
-              </span>
-            )}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', alignItems: 'flex-end' }}>
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.775rem', marginBottom: '4px' }}>
+                    Contest Alias (Shown on Leaderboard) *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. SpeedyFox or Alex"
+                    value={displayNameInput}
+                    onChange={(e) => setDisplayNameInput(e.target.value)}
+                    className="form-input"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.775rem', marginBottom: '4px' }}>
+                    LeetCode Handle (Private for AC Check) *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. fahad00cms"
+                    value={usernameInput}
+                    onChange={(e) => setUsernameInput(e.target.value)}
+                    className="form-input"
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm"
+                  style={{ height: '38px', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  <UserCheck size={15} /> Save & Join
+                </button>
+              </div>
+
+              {displayName && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  <span style={{ color: 'var(--color-easy)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <CheckCircle2 size={13} /> Active as: <strong>{displayName}</strong>
+                  </span>
+                  <span>•</span>
+                  <span>Linked LeetCode handle: <strong>{username ? `${username.slice(0, 2)}•••${username.slice(-1)}` : 'Set'}</strong> (Hidden from peers)</span>
+                </div>
+              )}
+            </form>
           </div>
 
           {/* Questions Tab */}
@@ -464,7 +512,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
               <LobbyChat
                 messages={messages}
                 onSendMessage={handleSendMessage}
-                currentUsername={username}
+                currentUsername={displayName || username}
               />
             </div>
           )}
@@ -475,7 +523,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
           <LobbyChat
             messages={messages}
             onSendMessage={handleSendMessage}
-            currentUsername={username}
+            currentUsername={displayName || username}
           />
         </div>
       </div>

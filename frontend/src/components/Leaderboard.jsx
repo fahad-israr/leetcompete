@@ -44,30 +44,24 @@ export default function Leaderboard({ leaderboard = [], problems = [] }) {
               <td>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <div style={{
-                    width: '30px',
-                    height: '30px',
-                    borderRadius: '50%',
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
                     background: 'var(--accent-primary-light)',
-                    border: '1px solid rgba(59, 130, 246, 0.35)',
-                    color: '#60a5fa',
+                    border: '1px solid rgba(245, 158, 11, 0.35)',
+                    color: 'var(--accent-primary)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontWeight: '700',
-                    fontSize: '0.8rem'
+                    fontWeight: '800',
+                    fontSize: '0.85rem'
                   }}>
-                    {entry.username.charAt(0).toUpperCase()}
+                    {(entry.displayName || 'C').charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <div style={{ fontWeight: '600' }}>{entry.displayName}</div>
-                    <a
-                      href={`https://leetcode.com/${entry.username}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ fontSize: '0.75rem', color: 'var(--accent-cyan)', textDecoration: 'none' }}
-                    >
-                      @{entry.username} ↗
-                    </a>
+                    <div style={{ fontWeight: '700', fontSize: '0.925rem', color: 'var(--text-main)' }}>
+                      {entry.displayName || 'Contestant'}
+                    </div>
                   </div>
                 </div>
               </td>
