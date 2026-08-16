@@ -1,0 +1,18 @@
+{
+  "name": "leetcompete-backend",
+  "version": "1.0.0",
+  "description": "AWS Lambda & DynamoDB serverless backend for LeetCompete platform",
+  "main": "index.js",
+  "scripts": {
+    "deploy": "serverless deploy",
+    "remove": "serverless remove"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.712.0",
+    "@aws-sdk/lib-dynamodb": "^3.712.0",
+    "leetcode-contest-platform": "file:.."
+  },
+  "devDependencies": {
+    "serverless": "^3.39.0"
+  }
+}

@@ -1,0 +1,167 @@
+{
+  "seasons": [
+    {
+      "id": "season_1786887107345_dlb58",
+      "title": "Spring 2026 Competitive League",
+      "description": "Weekly tournament where no problems ever repeat!",
+      "createdAt": 1786887107
+    }
+  ],
+  "contests": [
+    {
+      "id": "contest_1786887107347_7v4fy",
+      "code": "9HCHV",
+      "seasonId": "season_1786887107345_dlb58",
+      "seasonRound": 1,
+      "title": "Season Round #1: Opening Match",
+      "durationMinutes": 90,
+      "status": "IN_PROGRESS",
+      "startTime": 1786887107,
+      "endTime": 1786892507,
+      "hostUsername": "fahad00cms",
+      "createdAt": 1786887107
+    }
+  ],
+  "contestProblems": [
+    {
+      "id": "prob_1786887107347_0_be46",
+      "contestId": "contest_1786887107347_7v4fy",
+      "frontendId": "70",
+      "title": "Climbing Stairs",
+      "titleSlug": "climbing-stairs",
+      "difficulty": "Easy",
+      "points": 100,
+      "orderIndex": 0,
+      "topicTags": [
+        "Dynamic Programming",
+        "Math"
+      ]
+    },
+    {
+      "id": "prob_1786887107347_1_srpm",
+      "contestId": "contest_1786887107347_7v4fy",
+      "frontendId": "79",
+      "title": "Word Search",
+      "titleSlug": "word-search",
+      "difficulty": "Medium",
+      "points": 200,
+      "orderIndex": 1,
+      "topicTags": [
+        "Array",
+        "String",
+        "Backtracking",
+        "Matrix"
+      ]
+    },
+    {
+      "id": "prob_1786887107347_2_wbvv",
+      "contestId": "contest_1786887107347_7v4fy",
+      "frontendId": "22",
+      "title": "Generate Parentheses",
+      "titleSlug": "generate-parentheses",
+      "difficulty": "Medium",
+      "points": 300,
+      "orderIndex": 2,
+      "topicTags": [
+        "String",
+        "Dynamic Programming",
+        "Backtracking"
+      ]
+    },
+    {
+      "id": "prob_1786887107347_3_2jv6",
+      "contestId": "contest_1786887107347_7v4fy",
+      "frontendId": "84",
+      "title": "Largest Rectangle in Histogram",
+      "titleSlug": "largest-rectangle-in-histogram",
+      "difficulty": "Hard",
+      "points": 400,
+      "orderIndex": 3,
+      "topicTags": [
+        "Array",
+        "Stack",
+        "Monotonic Stack"
+      ]
+    }
+  ],
+  "participants": [
+    {
+      "id": "part_1786887107347_drzzc",
+      "contestId": "contest_1786887107347_7v4fy",
+      "username": "fahad00cms",
+      "displayName": "fahad00cms",
+      "joinedAt": 1786887107
+    },
+    {
+      "id": "part_1786887107349_kzyak",
+      "contestId": "contest_1786887107347_7v4fy",
+      "username": "alice_coder",
+      "displayName": "Alice",
+      "joinedAt": 1786887107
+    },
+    {
+      "id": "part_1786887107351_mb70x",
+      "contestId": "contest_1786887107347_7v4fy",
+      "username": "bob_algo",
+      "displayName": "Bob",
+      "joinedAt": 1786887107
+    }
+  ],
+  "submissions": [
+    {
+      "id": "sub_1786887107356_f4a4p",
+      "contestId": "contest_1786887107347_7v4fy",
+      "username": "fahad00cms",
+      "problemSlug": "climbing-stairs",
+      "problemTitle": "Climbing Stairs",
+      "status": "ACCEPTED",
+      "submissionId": "2109999999",
+      "submissionTimestamp": 1786887827,
+      "penaltyMinutes": 12,
+      "points": 100,
+      "verifiedAt": 1786887107
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg_1786887107347_9gbh3",
+      "contestId": "contest_1786887107347_7v4fy",
+      "username": "SYSTEM",
+      "text": "Lobby created! Invite contestants using Lobby Code: 9HCHV",
+      "type": "SYSTEM",
+      "createdAt": 1786887107
+    },
+    {
+      "id": "msg_1786887107349_egrgy",
+      "contestId": "contest_1786887107347_7v4fy",
+      "username": "SYSTEM",
+      "text": "Alice (@alice_coder) joined the lobby.",
+      "type": "SYSTEM",
+      "createdAt": 1786887107
+    },
+    {
+      "id": "msg_1786887107351_cerrd",
+      "contestId": "contest_1786887107347_7v4fy",
+      "username": "SYSTEM",
+      "text": "Bob (@bob_algo) joined the lobby.",
+      "type": "SYSTEM",
+      "createdAt": 1786887107
+    },
+    {
+      "id": "msg_1786887107353_lctig",
+      "contestId": "contest_1786887107347_7v4fy",
+      "username": "SYSTEM",
+      "text": "Contest has started! You have 90 minutes. Good luck!",
+      "type": "SYSTEM",
+      "createdAt": 1786887107
+    },
+    {
+      "id": "msg_1786887107356_tcmcb",
+      "contestId": "contest_1786887107347_7v4fy",
+      "username": "SYSTEM",
+      "text": "🎉 fahad00cms solved \"Climbing Stairs\" (+12m)!",
+      "type": "SOLVE",
+      "createdAt": 1786887107
+    }
+  ]
+}

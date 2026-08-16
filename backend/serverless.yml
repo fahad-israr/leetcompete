@@ -1,0 +1,123 @@
+service: leetcompete
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  environment:
+    SEASONS_TABLE: ${self:service}-seasons-${self:provider.stage}
+    CONTESTS_TABLE: ${self:service}-contests-${self:provider.stage}
+    SUBMISSIONS_TABLE: ${self:service}-submissions-${self:provider.stage}
+    MESSAGES_TABLE: ${self:service}-messages-${self:provider.stage}
+    ADMIN_PASSCODE: ${opt:adminPasscode, 'leetcompete_admin_2026'}
+    ALLOWED_ADMIN_EMAILS: ${opt:adminEmails, 'fahad00cms@gmail.com'}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource:
+            - !GetAtt SeasonsTable.Arn
+            - !GetAtt ContestsTable.Arn
+            - !GetAtt SubmissionsTable.Arn
+            - !GetAtt MessagesTable.Arn
+            - !Join ['', [!GetAtt ContestsTable.Arn, "/index/*"]]
+
+package:
+  patterns:
+    - '!./**'
+    - 'index.js'
+    - 'leetcode.js'
+    - 'problemBank.js'
+    - 'node_modules/**'
+
+functions:
+  api:
+    handler: index.handler
+    url:
+      cors:
+        allowedOrigins:
+          - '*'
+        allowedHeaders:
+          - '*'
+        allowedMethods:
+          - '*'
+    timeout: 30
+    memorySize: 256
+    maximumRetryAttempts: 0
+
+resources:
+  Resources:
+    SeasonsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.SEASONS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+    ContestsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.CONTESTS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: code
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: CodeIndex
+            KeySchema:
+              - AttributeName: code
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+        BillingMode: PAY_PER_REQUEST
+
+    SubmissionsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.SUBMISSIONS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: contestId
+            AttributeType: S
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: contestId
+            KeyType: HASH
+          - AttributeName: id
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+
+    MessagesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.MESSAGES_TABLE}
+        AttributeDefinitions:
+          - AttributeName: contestId
+            AttributeType: S
+          - AttributeName: createdAt
+            AttributeType: N
+        KeySchema:
+          - AttributeName: contestId
+            KeyType: HASH
+          - AttributeName: createdAt
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
