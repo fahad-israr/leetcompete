@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Flame, PlusCircle, Compass, Layers, User, Check, Edit2, ShieldCheck, Lock, Sun, Moon } from 'lucide-react';
+import { Flame, PlusCircle, Compass, Layers, User, Check, Edit2, ShieldCheck, Lock, Sun, Moon, Menu, X } from 'lucide-react';
 
 export default function Navbar({
   activeView,
@@ -13,6 +13,7 @@ export default function Navbar({
   const [inputVal, setInputVal] = useState('');
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [theme, setTheme] = useState('light'); // Default to light theme
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     // 1. Initialize Theme (Default = light)
@@ -49,6 +50,11 @@ export default function Navbar({
     window.dispatchEvent(new CustomEvent('leetcompete_user_changed', { detail: clean }));
   };
 
+  const handleNavClick = (view) => {
+    setActiveView(view);
+    setIsMobileMenuOpen(false);
+  };
+
   return (
     <nav
       className="navbar-container"
@@ -70,7 +76,7 @@ export default function Navbar({
       {/* Brand & Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
         <div
-          onClick={() => setActiveView('home')}
+          onClick={() => handleNavClick('home')}
           style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
         >
           {/* Flame Icon Logo */}
@@ -96,10 +102,10 @@ export default function Navbar({
           </span>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="navbar-tabs" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {/* Desktop Navigation Tabs */}
+        <div className="desktop-nav-tabs" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <button
-            onClick={() => setActiveView('home')}
+            onClick={() => handleNavClick('home')}
             className={`tab-btn ${activeView === 'home' ? 'active' : ''}`}
             style={{ padding: '6px 12px', borderRadius: '6px' }}
           >
@@ -107,7 +113,7 @@ export default function Navbar({
             Lobbies
           </button>
           <button
-            onClick={() => setActiveView('seasons')}
+            onClick={() => handleNavClick('seasons')}
             className={`tab-btn ${activeView === 'seasons' ? 'active' : ''}`}
             style={{ padding: '6px 12px', borderRadius: '6px' }}
           >
@@ -118,7 +124,7 @@ export default function Navbar({
       </div>
 
       {/* Right Controls */}
-      <div className="navbar-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         {/* Light / Dark Mode Toggle Button */}
         <button
           onClick={toggleTheme}
@@ -132,13 +138,13 @@ export default function Navbar({
           aria-label="Toggle theme"
         >
           {theme === 'light' ? <Moon size={16} /> : <Sun size={16} color="#fbbf24" />}
-          <span className="hide-on-mobile">{theme === 'light' ? 'Dark' : 'Light'}</span>
+          <span className="desktop-only-controls">{theme === 'light' ? 'Dark' : 'Light'}</span>
         </button>
 
-        {/* Admin Mode Badge / Button */}
+        {/* Desktop Admin Mode Badge */}
         <button
           onClick={onOpenAdminModal}
-          className="btn btn-secondary btn-sm"
+          className="btn btn-secondary btn-sm desktop-only-controls"
           style={{
             borderColor: isAdminUnlocked ? 'var(--color-easy)' : 'var(--border-color)',
             color: isAdminUnlocked ? 'var(--color-easy)' : 'var(--text-muted)',
@@ -147,19 +153,24 @@ export default function Navbar({
           title={isAdminUnlocked ? 'Admin Mode Active' : 'Unlock Admin Mode'}
         >
           {isAdminUnlocked ? <ShieldCheck size={14} color="var(--color-easy)" /> : <Lock size={14} />}
-          <span className="hide-on-mobile">{isAdminUnlocked ? 'Admin' : 'Admin Login'}</span>
+          <span>{isAdminUnlocked ? 'Admin' : 'Admin Login'}</span>
         </button>
 
+        {/* Desktop New Season Button */}
         <button
           onClick={onOpenCreateSeason}
-          className="btn btn-secondary btn-sm hide-on-mobile"
+          className="btn btn-secondary btn-sm desktop-only-controls"
         >
           <Layers size={14} color="var(--accent-primary)" />
           <span>New Season</span>
         </button>
 
+        {/* Quick Host Button (Visible on both Mobile & Desktop) */}
         <button
-          onClick={onOpenCreateContest}
+          onClick={() => {
+            onOpenCreateContest();
+            setIsMobileMenuOpen(false);
+          }}
           className="btn btn-primary btn-sm"
           style={{ padding: '6px 12px' }}
         >
@@ -167,8 +178,8 @@ export default function Navbar({
           <span>Host</span>
         </button>
 
-        {/* LeetCode User Badge */}
-        <div style={{
+        {/* Desktop LeetCode User Badge */}
+        <div className="desktop-only-controls" style={{
           display: 'flex',
           alignItems: 'center',
           background: 'var(--bg-card)',
@@ -213,6 +224,93 @@ export default function Navbar({
               <Edit2 size={11} color="var(--text-muted)" />
             </div>
           )}
+        </div>
+
+        {/* Mobile Hamburger Toggle Button */}
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="mobile-nav-toggle"
+          aria-label="Toggle Navigation Menu"
+        >
+          {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+      </div>
+
+      {/* Mobile Slide-Down Drawer Menu */}
+      <div className={`mobile-menu-drawer ${isMobileMenuOpen ? 'open' : ''}`}>
+        <button
+          onClick={() => handleNavClick('home')}
+          className={`mobile-nav-link ${activeView === 'home' ? 'active' : ''}`}
+        >
+          <Compass size={18} />
+          <span>Contest Lobbies</span>
+        </button>
+
+        <button
+          onClick={() => handleNavClick('seasons')}
+          className={`mobile-nav-link ${activeView === 'seasons' ? 'active' : ''}`}
+        >
+          <Layers size={18} />
+          <span>Seasons & Problem Bundles</span>
+        </button>
+
+        <div style={{ height: '1px', background: 'var(--border-color)', margin: '4px 0' }} />
+
+        <button
+          onClick={() => {
+            onOpenCreateSeason();
+            setIsMobileMenuOpen(false);
+          }}
+          className="mobile-nav-link"
+        >
+          <Layers size={18} color="var(--accent-primary)" />
+          <span>Create New Season</span>
+        </button>
+
+        <button
+          onClick={() => {
+            onOpenAdminModal();
+            setIsMobileMenuOpen(false);
+          }}
+          className="mobile-nav-link"
+        >
+          {isAdminUnlocked ? <ShieldCheck size={18} color="var(--color-easy)" /> : <Lock size={18} />}
+          <span>{isAdminUnlocked ? 'Admin Mode (Active)' : 'Unlock Admin Mode'}</span>
+        </button>
+
+        {/* Mobile User Profile ID Form */}
+        <div style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
+          borderRadius: 'var(--radius-md)',
+          padding: '12px 14px',
+          marginTop: '6px'
+        }}>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <User size={14} color="var(--accent-primary)" />
+            <span>LeetCode Username:</span>
+          </div>
+          <form onSubmit={handleSaveUser} style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="text"
+              value={inputVal}
+              onChange={(e) => setInputVal(e.target.value)}
+              placeholder="e.g. neetcode"
+              style={{
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '8px 12px',
+                color: 'var(--text-main)',
+                fontSize: '16px',
+                flex: 1,
+                outline: 'none'
+              }}
+            />
+            <button type="submit" className="btn btn-primary btn-sm" style={{ padding: '8px 14px' }}>
+              Save
+            </button>
+          </form>
         </div>
       </div>
     </nav>

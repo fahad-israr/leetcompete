@@ -279,8 +279,8 @@ export default function SeasonManager({
               </div>
             </div>
 
-            {/* Problem Pool Table / Matrix */}
-            <div className="table-container">
+            {/* Desktop Problem Pool Table */}
+            <div className="table-container desktop-problem-table">
               <table className="data-table">
                 <thead>
                   <tr>
@@ -361,6 +361,50 @@ export default function SeasonManager({
                   })}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Problem Cards (Shown on mobile viewports <= 768px) */}
+            <div className="mobile-problem-cards">
+              {filteredPool.map((p, idx) => {
+                const usage = usedMap[p.titleSlug?.toLowerCase()];
+                const isUsed = !!usage;
+
+                return (
+                  <div key={`m_${p.titleSlug || idx}`} className="mobile-problem-card">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+                        #{p.frontendId || idx + 1}
+                      </span>
+                      <span className={`badge badge-${p.difficulty?.toLowerCase() || 'medium'}`}>
+                        {p.difficulty || 'Medium'}
+                      </span>
+                    </div>
+
+                    <h4 style={{ fontSize: '0.95rem', fontWeight: '700', marginBottom: '8px' }}>
+                      <a
+                        href={`https://leetcode.com/problems/${p.titleSlug}/`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: 'var(--text-main)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        <span>{p.title}</span>
+                        <ExternalLink size={13} color="var(--accent-primary)" />
+                      </a>
+                    </h4>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px', fontSize: '0.775rem', color: 'var(--text-muted)' }}>
+                      <span>{(p.topicTags || []).slice(0, 2).join(', ') || 'Algorithm'}</span>
+                      {isUsed ? (
+                        <span style={{ color: 'var(--color-easy)', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <CheckCircle2 size={12} /> Round #{usage.round}
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--text-dim)' }}>Ready for Draw</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

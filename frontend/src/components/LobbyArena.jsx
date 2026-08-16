@@ -316,6 +316,12 @@ export default function LobbyArena({ contestCode, onBack }) {
               >
                 <Trophy size={16} /> Live Rankings
               </button>
+              <button
+                onClick={() => setActiveTab('chat')}
+                className={`tab-btn mobile-only-tab ${activeTab === 'chat' ? 'active' : ''}`}
+              >
+                💬 Live Chat ({messages?.length || 0})
+              </button>
             </div>
 
             <button
@@ -337,13 +343,13 @@ export default function LobbyArena({ contestCode, onBack }) {
 
           {showHelp && (
             <div style={{
-              background: 'rgba(59, 130, 246, 0.1)',
-              border: '1px solid rgba(59, 130, 246, 0.3)',
+              background: 'var(--accent-primary-light)',
+              border: '1px solid var(--border-glow)',
               borderRadius: 'var(--radius-md)',
               padding: '14px 18px',
               marginBottom: '20px',
               fontSize: '0.875rem',
-              color: '#bfdbfe',
+              color: 'var(--text-main)',
               lineHeight: 1.5
             }}>
               <strong>How Submission Verification Works:</strong>
@@ -379,12 +385,12 @@ export default function LobbyArena({ contestCode, onBack }) {
                 value={usernameInput}
                 onChange={(e) => setUsernameInput(e.target.value)}
                 className="form-input"
-                style={{ background: 'var(--bg-surface)', padding: '8px 14px' }}
+                style={{ padding: '8px 14px' }}
               />
               <button
                 type="submit"
                 className="btn btn-secondary btn-sm"
-                style={{ borderColor: 'var(--accent-primary)', color: '#fff' }}
+                style={{ borderColor: 'var(--accent-primary)', color: 'var(--text-main)' }}
               >
                 <UserCheck size={14} /> Save
               </button>
@@ -402,31 +408,35 @@ export default function LobbyArena({ contestCode, onBack }) {
             <div>
               {contest.status === 'WAITING' && (
                 <div style={{
-                  background: 'rgba(245, 158, 11, 0.1)',
-                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                  background: 'var(--accent-primary-light)',
+                  border: '1px solid var(--border-glow)',
                   borderRadius: 'var(--radius-md)',
                   padding: '12px 16px',
                   marginBottom: '16px',
                   fontSize: '0.9rem',
-                  color: '#fcd34d',
-                  textAlign: 'center'
+                  color: 'var(--accent-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
                 }}>
-                  ⏳ The contest has not started yet. When the host clicks <strong>Start Contest</strong>, submission verification will unlock!
+                  <AlertCircle size={16} />
+                  <span>Waiting for host to start the contest. Problems will unlock upon start.</span>
                 </div>
               )}
 
               {contest.problems?.map((prob, idx) => {
-                const status = userEntry?.problemStatus?.[prob.titleSlug];
+                const userSolve = userEntry?.solves?.find(s => s.problemSlug?.toLowerCase() === prob.titleSlug?.toLowerCase());
                 return (
                   <ProblemCard
-                    key={prob.titleSlug}
+                    key={prob.titleSlug || idx}
+                    index={idx + 1}
                     problem={prob}
-                    index={idx}
+                    isLocked={contest.status === 'WAITING'}
+                    isSolved={!!userSolve}
+                    solveData={userSolve}
                     contestStatus={contest.status}
-                    userSolved={status?.solved}
-                    solvePenalty={status?.penaltyMinutes}
                     onVerify={handleVerifyProblem}
-                    disabled={!username || contest.status !== 'IN_PROGRESS'}
+                    isVerifying={verifyingSlug === prob.titleSlug}
                   />
                 );
               })}
@@ -440,10 +450,21 @@ export default function LobbyArena({ contestCode, onBack }) {
               problems={contest.problems || []}
             />
           )}
+
+          {/* Mobile Chat Tab */}
+          {activeTab === 'chat' && (
+            <div className="mobile-only-tab" style={{ width: '100%', display: 'block' }}>
+              <LobbyChat
+                messages={messages}
+                onSendMessage={handleSendMessage}
+                currentUsername={username}
+              />
+            </div>
+          )}
         </div>
 
-        {/* Right Column: Chat */}
-        <div>
+        {/* Right Column: Chat (Desktop) */}
+        <div className="desktop-arena-sidebar">
           <LobbyChat
             messages={messages}
             onSendMessage={handleSendMessage}

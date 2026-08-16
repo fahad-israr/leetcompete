@@ -8,9 +8,10 @@ export default function Footer() {
       padding: '22px 20px',
       marginTop: 'auto',
       textAlign: 'center',
-      background: 'rgba(19, 22, 32, 0.95)',
+      background: 'var(--bg-card)',
       fontSize: '0.85rem',
-      color: 'var(--text-muted)'
+      color: 'var(--text-muted)',
+      transition: 'background 0.25s ease, border-color 0.25s ease'
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flexWrap: 'wrap' }}>
         <span>Made with</span>
@@ -21,7 +22,7 @@ export default function Footer() {
           target="_blank"
           rel="noreferrer"
           style={{
-            color: '#fbbf24',
+            color: 'var(--accent-primary)',
             fontWeight: '600',
             textDecoration: 'none',
             display: 'inline-flex',

@@ -43,7 +43,7 @@
   --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.08);
   --shadow-glow: 0 0 18px rgba(234, 88, 12, 0.12);
 
-  --navbar-bg: rgba(255, 255, 255, 0.95);
+  --navbar-bg: rgba(255, 255, 255, 0.96);
   --hero-bg: linear-gradient(135deg, #ffffff, #f8fafc);
   --table-th-bg: #f1f5f9;
   --modal-footer-bg: #f8fafc;
@@ -85,7 +85,7 @@
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.75);
   --shadow-glow: 0 0 24px rgba(245, 158, 11, 0.18);
 
-  --navbar-bg: rgba(19, 22, 32, 0.95);
+  --navbar-bg: rgba(19, 22, 32, 0.96);
   --hero-bg: linear-gradient(135deg, rgba(23, 27, 38, 0.95), rgba(19, 22, 32, 0.98));
   --table-th-bg: #10131c;
   --modal-footer-bg: rgba(0, 0, 0, 0.2);
@@ -131,7 +131,7 @@ body {
 
 @media (max-width: 768px) {
   .container {
-    padding: 16px 14px 40px;
+    padding: 14px 12px 40px;
   }
 }
 
@@ -166,7 +166,7 @@ body {
 
 @media (max-width: 768px) {
   .card {
-    padding: 16px;
+    padding: 15px;
   }
 }
 
@@ -186,7 +186,8 @@ body {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   text-decoration: none;
   white-space: nowrap;
-  min-height: 40px;
+  min-height: 42px;
+  touch-action: manipulation;
 }
 
 .btn:disabled {
@@ -237,14 +238,14 @@ body {
 .btn-sm {
   padding: 6px 12px;
   font-size: 0.8rem;
-  min-height: 34px;
+  min-height: 36px;
   border-radius: var(--radius-sm);
 }
 
 .btn-lg {
   padding: 12px 22px;
   font-size: 0.95rem;
-  min-height: 44px;
+  min-height: 46px;
   border-radius: var(--radius-md);
 }
 
@@ -318,10 +319,10 @@ body {
   padding: 10px 14px;
   color: var(--text-main);
   font-family: var(--font-sans);
-  font-size: 0.9rem;
+  font-size: 16px; /* 16px prevents iOS Safari auto-zoom on focus */
   transition: all 0.2s ease;
   outline: none;
-  min-height: 42px;
+  min-height: 44px;
 }
 
 .form-input:focus, .form-textarea:focus, .form-select:focus {
@@ -411,7 +412,7 @@ body {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.65);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -429,6 +430,9 @@ body {
   box-shadow: var(--shadow-lg);
   animation: modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
 }
 
 @keyframes modalIn {
@@ -448,12 +452,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
 }
 
 .modal-body {
   padding: 20px;
-  max-height: 75vh;
   overflow-y: auto;
+  flex: 1;
 }
 
 .modal-footer {
@@ -464,6 +469,7 @@ body {
   justify-content: flex-end;
   gap: 10px;
   background: var(--modal-footer-bg);
+  flex-shrink: 0;
 }
 
 /* Progress bar */
@@ -480,6 +486,82 @@ body {
   background: linear-gradient(90deg, var(--accent-primary), var(--accent-gold));
   border-radius: 4px;
   transition: width 0.4s ease;
+}
+
+/* Mobile Hamburger Menu Drawer */
+.mobile-nav-toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 7px;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.mobile-menu-drawer {
+  display: none;
+  position: absolute;
+  top: 66px;
+  left: 0;
+  right: 0;
+  background: var(--navbar-bg);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-color);
+  padding: 18px 20px 24px;
+  box-shadow: var(--shadow-lg);
+  flex-direction: column;
+  gap: 14px;
+  animation: drawerSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 99;
+}
+
+@keyframes drawerSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mobile-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  color: var(--text-main);
+  font-weight: 600;
+  font-size: 0.95rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.mobile-nav-link:hover, .mobile-nav-link.active {
+  background: var(--accent-primary-light);
+  color: var(--accent-primary);
+  border-color: var(--border-glow);
+}
+
+/* Mobile Problem Card List in Season Manager */
+.mobile-problem-card {
+  display: none;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  margin-bottom: 10px;
+}
+
+/* Arena Mobile Segmented Utilities */
+.mobile-only-tab {
+  display: none;
 }
 
 /* Responsive Overrides */
@@ -504,31 +586,35 @@ body {
   .quick-join-bar form, .quick-join-bar input, .quick-join-bar button {
     width: 100% !important;
   }
+
+  .mobile-only-tab {
+    display: inline-flex !important;
+  }
+
+  .desktop-arena-sidebar {
+    display: none !important;
+  }
 }
 
-@media (max-width: 600px) {
-  .navbar-container {
-    padding: 0 12px !important;
-    height: auto !important;
-    min-height: 60px !important;
-    flex-wrap: wrap !important;
-    gap: 10px !important;
-    padding-top: 10px !important;
-    padding-bottom: 10px !important;
-  }
-
-  .navbar-tabs {
-    order: 3 !important;
-    width: 100% !important;
-    justify-content: space-around !important;
-  }
-
-  .navbar-right {
-    gap: 6px !important;
-  }
-
-  .hide-on-mobile {
+@media (max-width: 768px) {
+  .desktop-nav-tabs, .desktop-only-controls {
     display: none !important;
+  }
+
+  .mobile-nav-toggle {
+    display: inline-flex !important;
+  }
+
+  .mobile-menu-drawer.open {
+    display: flex !important;
+  }
+
+  .desktop-problem-table {
+    display: none !important;
+  }
+
+  .mobile-problem-card {
+    display: block !important;
   }
 }
 
