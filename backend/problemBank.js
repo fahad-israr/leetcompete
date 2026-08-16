@@ -266,6 +266,7 @@ function generateRandomRoundFromPool({
     totalPoolCount: pool.length,
     usedCount: usedSlugs.length + selected.length
   };
+}
 
 async function resolveListOrUrls(input) {
   if (!input || !input.trim()) return [];
