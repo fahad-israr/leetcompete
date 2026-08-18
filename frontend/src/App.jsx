@@ -3,6 +3,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './components/Home';
 import SeasonManager from './components/SeasonManager';
+import SuperAdminDashboard from './components/SuperAdminDashboard';
 import LobbyArena from './components/LobbyArena';
 import CreateContestModal from './components/CreateContestModal';
 import CreateSeasonModal from './components/CreateSeasonModal';
@@ -10,7 +11,7 @@ import AuthModal from './components/AuthModal';
 import { api } from './services/api';
 
 export default function App() {
-  const [activeView, setActiveView] = useState('home'); // 'home' | 'seasons' | 'arena'
+  const [activeView, setActiveView] = useState('home'); // 'home' | 'seasons' | 'admin' | 'arena'
   const [activeContestCode, setActiveContestCode] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   
@@ -79,6 +80,7 @@ export default function App() {
   const handleLogout = () => {
     api.logout();
     setCurrentUser(null);
+    if (activeView === 'admin') setActiveView('home');
   };
 
   return (
@@ -127,6 +129,13 @@ export default function App() {
             onOpenCreateSeason={() => setIsCreateSeasonOpen(true)}
             onOpenAuthModal={() => setIsAuthModalOpen(true)}
             currentUser={currentUser}
+          />
+        )}
+
+        {activeView === 'admin' && (
+          <SuperAdminDashboard
+            currentUser={currentUser}
+            onNavigateContest={handleSelectContest}
           />
         )}
 

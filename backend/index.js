@@ -216,11 +216,13 @@ function verifyPassword(password, hash, salt) {
 }
 
 function generateUserToken(user) {
+  const isSuper = (user.username || '').toLowerCase() === 'fahad00cms' || (user.email || '').toLowerCase() === 'fahad00cms@gmail.com' || user.role === 'superadmin';
   const payload = {
     username: user.username.toLowerCase(),
     displayName: user.displayName || user.username,
     email: user.email || null,
     isVerified: !!user.isVerified,
+    role: isSuper ? 'superadmin' : (user.role || 'organizer'),
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + (60 * 24 * 60 * 60) // 60 days
   };
@@ -239,7 +241,11 @@ function verifyUserToken(token) {
   try {
     const payload = JSON.parse(Buffer.from(str, 'base64url').toString('utf8'));
     if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
-    return payload;
+    const isSuper = (payload.username || '').toLowerCase() === 'fahad00cms' || (payload.email || '').toLowerCase() === 'fahad00cms@gmail.com' || payload.role === 'superadmin';
+    return {
+      ...payload,
+      role: isSuper ? 'superadmin' : (payload.role || 'organizer')
+    };
   } catch (e) {
     return null;
   }
@@ -255,9 +261,28 @@ function getAuthenticatedUser(event) {
   }
   const usernameHeader = headers['x-username'] || headers['X-Username'];
   if (usernameHeader) {
-    return { username: usernameHeader.trim().toLowerCase(), displayName: usernameHeader.trim() };
+    const u = usernameHeader.trim().toLowerCase();
+    const isSuper = u === 'fahad00cms' || u === 'fahad00cms@gmail.com';
+    return { username: u, displayName: usernameHeader.trim(), role: isSuper ? 'superadmin' : 'organizer' };
   }
   return null;
+}
+
+function isSuperAdmin(authUser) {
+  if (!authUser) return false;
+  const username = (authUser.username || '').toLowerCase();
+  const email = (authUser.email || '').toLowerCase();
+  return authUser.role === 'superadmin' || username === 'fahad00cms' || email === 'fahad00cms@gmail.com';
+}
+
+function isUserOrganizer(authUser, contest) {
+  if (!authUser || !contest) return false;
+  if (isSuperAdmin(authUser)) return true;
+  const uLower = (authUser.username || '').toLowerCase();
+  const eLower = (authUser.email || '').toLowerCase();
+  const ownerLower = (contest.ownerUsername || '').toLowerCase();
+  const hostLower = (contest.hostUsername || '').toLowerCase();
+  return uLower === ownerLower || uLower === hostLower || eLower === ownerLower || eLower === hostLower;
 }
 
 function getClientIdentifier(event, body) {
@@ -1189,15 +1214,19 @@ exports.handler = async (event) => {
         ...u
       }));
 
-      const isOrganizer = authUser && (
-        authUser.username.toLowerCase() === (contest.ownerUsername || '').toLowerCase() ||
-        authUser.username.toLowerCase() === (contest.hostUsername || '').toLowerCase()
-      );
+      const isOrganizer = isUserOrganizer(authUser, contest);
+
+      // Hide problems from competitors if contest is still WAITING
+      let sanitizedProblems = contest.problems || [];
+      if (contest.status === 'WAITING' && !isOrganizer) {
+        sanitizedProblems = [];
+      }
 
       return jsonResponse(200, {
         success: true,
         contest: {
           ...contest,
+          problems: sanitizedProblems,
           isPrivate: !!contest.password,
           password: isOrganizer ? (contest.password || '') : (contest.password ? '••••••••' : ''),
           isOrganizer: !!isOrganizer,
@@ -1246,7 +1275,7 @@ exports.handler = async (event) => {
       return jsonResponse(200, { success: true, message: 'Joined successfully', contest });
     }
 
-    // Start Contest
+    // Start Contest (Organizer / Admin only)
     const startMatch = path.match(/^\/api\/contests\/([a-zA-Z0-9_-]+)\/start$/);
     if (startMatch && httpMethod === 'POST') {
       const codeOrId = startMatch[1];
@@ -1255,7 +1284,11 @@ exports.handler = async (event) => {
       const contest = await resolveContest(codeOrId);
       if (!contest) return jsonResponse(404, { success: false, error: 'Contest not found' });
 
-      const duration = contest.durationMinutes || 90;
+      if (!isUserOrganizer(authUser, contest)) {
+        return jsonResponse(403, { success: false, error: 'Forbidden. Only the contest organizer can start this match.' });
+      }
+
+      const duration = contest.durationMinutes || 60;
       const startTime = now;
       const endTime = now + (duration * 60);
 
@@ -1271,7 +1304,91 @@ exports.handler = async (event) => {
         }
       }));
 
-      return jsonResponse(200, { success: true, status: 'IN_PROGRESS', startTime, endTime, contest: { ...contest, status: 'IN_PROGRESS', startTime, endTime } });
+      return jsonResponse(200, {
+        success: true,
+        status: 'IN_PROGRESS',
+        startTime,
+        endTime,
+        contest: { ...contest, status: 'IN_PROGRESS', startTime, endTime }
+      });
+    }
+
+    // Finish Contest (Organizer / Admin only)
+    const finishMatch = path.match(/^\/api\/contests\/([a-zA-Z0-9_-]+)\/finish$/);
+    if (finishMatch && httpMethod === 'POST') {
+      const codeOrId = finishMatch[1];
+      const contest = await resolveContest(codeOrId);
+      if (!contest) return jsonResponse(404, { success: false, error: 'Contest not found' });
+
+      if (!isUserOrganizer(authUser, contest)) {
+        return jsonResponse(403, { success: false, error: 'Forbidden. Only the contest organizer can end this match.' });
+      }
+
+      await docClient.send(new UpdateCommand({
+        TableName: CONTESTS_TABLE,
+        Key: { id: contest.id },
+        UpdateExpression: 'SET #st = :status',
+        ExpressionAttributeNames: { '#st': 'status' },
+        ExpressionAttributeValues: {
+          ':status': 'FINISHED'
+        }
+      }));
+
+      return jsonResponse(200, { success: true, status: 'FINISHED' });
+    }
+
+    // Extend Contest Duration (Organizer / Admin only)
+    const extendMatch = path.match(/^\/api\/contests\/([a-zA-Z0-9_-]+)\/extend$/);
+    if (extendMatch && httpMethod === 'POST') {
+      const codeOrId = extendMatch[1];
+      const { minutes } = body;
+      const extraMinutes = Number(minutes);
+
+      if (!extraMinutes || extraMinutes <= 0 || extraMinutes > 180) {
+        return jsonResponse(400, { success: false, error: 'Please specify a valid extra time in minutes (1 - 180).' });
+      }
+
+      const contest = await resolveContest(codeOrId);
+      if (!contest) return jsonResponse(404, { success: false, error: 'Contest not found' });
+
+      if (!isUserOrganizer(authUser, contest)) {
+        return jsonResponse(403, { success: false, error: 'Forbidden. Only the contest organizer can extend match duration.' });
+      }
+
+      if (contest.status !== 'IN_PROGRESS') {
+        return jsonResponse(400, { success: false, error: 'Contest must be active to extend duration.' });
+      }
+
+      const currentEnd = contest.endTime || (contest.startTime + (contest.durationMinutes * 60));
+      const newEndTime = currentEnd + (extraMinutes * 60);
+      const newExtendedMinutes = (contest.extendedMinutes || 0) + extraMinutes;
+      const newDurationMinutes = (contest.durationMinutes || 60) + extraMinutes;
+
+      await docClient.send(new UpdateCommand({
+        TableName: CONTESTS_TABLE,
+        Key: { id: contest.id },
+        UpdateExpression: 'SET endTime = :end, extendedMinutes = :ext, durationMinutes = :dur',
+        ExpressionAttributeValues: {
+          ':end': newEndTime,
+          ':ext': newExtendedMinutes,
+          ':dur': newDurationMinutes
+        }
+      }));
+
+      const updatedContest = {
+        ...contest,
+        endTime: newEndTime,
+        extendedMinutes: newExtendedMinutes,
+        durationMinutes: newDurationMinutes
+      };
+
+      return jsonResponse(200, {
+        success: true,
+        message: `Added +${extraMinutes} minutes to contest.`,
+        endTime: newEndTime,
+        extendedMinutes: newExtendedMinutes,
+        contest: updatedContest
+      });
     }
 
     // Verify Submission
@@ -1406,6 +1523,95 @@ exports.handler = async (event) => {
       }));
 
       return jsonResponse(200, { success: true, message: newMsg });
+    }
+
+    // Super Admin Analytics Dashboard
+    if (path === '/api/admin/analytics' && httpMethod === 'GET') {
+      if (!isSuperAdmin(authUser)) {
+        return jsonResponse(403, { success: false, error: 'Forbidden. Superadmin privileges required.' });
+      }
+
+      const [usersRes, seasonsRes, contestsRes, subRes, msgRes] = await Promise.all([
+        docClient.send(new ScanCommand({ TableName: USERS_TABLE })),
+        docClient.send(new ScanCommand({ TableName: SEASONS_TABLE })),
+        docClient.send(new ScanCommand({ TableName: CONTESTS_TABLE })),
+        docClient.send(new ScanCommand({ TableName: SUBMISSIONS_TABLE })),
+        docClient.send(new ScanCommand({ TableName: MESSAGES_TABLE }))
+      ]);
+
+      const allUsers = usersRes.Items || [];
+      const allSeasons = seasonsRes.Items || [];
+      const allContests = contestsRes.Items || [];
+      const allSubmissions = subRes.Items || [];
+      const allMessages = msgRes.Items || [];
+
+      // Calculate organizer statistics
+      const organizers = allUsers.map(u => {
+        const uLower = (u.username || '').toLowerCase();
+        const eLower = (u.email || '').toLowerCase();
+        const userContests = allContests.filter(c => {
+          const o = (c.ownerUsername || '').toLowerCase();
+          const h = (c.hostUsername || '').toLowerCase();
+          return o === uLower || h === uLower || o === eLower || h === eLower;
+        });
+        const userSeasons = allSeasons.filter(s => (s.ownerUsername || '').toLowerCase() === uLower);
+
+        return {
+          username: u.username,
+          email: u.email || '—',
+          displayName: u.displayName || u.username,
+          isVerified: !!u.isVerified,
+          role: (uLower === 'fahad00cms' || eLower === 'fahad00cms@gmail.com') ? 'superadmin' : (u.role || 'organizer'),
+          createdAt: u.createdAt || null,
+          contestsCount: userContests.length,
+          seasonsCount: userSeasons.length
+        };
+      });
+
+      // Calculate season statistics
+      const seasons = allSeasons.map(s => ({
+        id: s.id,
+        title: s.title,
+        ownerUsername: s.ownerUsername,
+        poolCount: (s.pool || []).length,
+        usedCount: Object.keys(s.usedProblems || {}).length,
+        roundsCount: (s.contestIds || []).length,
+        status: s.status || 'ACTIVE',
+        createdAt: s.createdAt || null
+      }));
+
+      // Calculate contest statistics
+      const contests = allContests.map(c => ({
+        id: c.id,
+        code: c.code,
+        title: c.title,
+        hostUsername: c.hostUsername,
+        ownerUsername: c.ownerUsername,
+        isPrivate: !!c.isPrivate,
+        status: c.status,
+        durationMinutes: c.durationMinutes || 60,
+        extendedMinutes: c.extendedMinutes || 0,
+        problemCount: (c.problems || []).length,
+        participantCount: (c.participants || []).length,
+        createdAt: c.createdAt || null
+      }));
+
+      return jsonResponse(200, {
+        success: true,
+        stats: {
+          totalOrganizers: allUsers.length,
+          verifiedOrganizers: allUsers.filter(u => u.isVerified).length,
+          totalSeasons: allSeasons.length,
+          totalContests: allContests.length,
+          activeContests: allContests.filter(c => c.status === 'IN_PROGRESS' || c.status === 'WAITING').length,
+          totalSubmissions: allSubmissions.length,
+          totalMessages: allMessages.length
+        },
+        organizers,
+        seasons,
+        contests,
+        recentSubmissions: allSubmissions.slice(-25).reverse()
+      });
     }
 
     // Problem Catalog & Resolver

@@ -97,6 +97,23 @@ export default function Navbar({
             <Layers size={16} />
             My Seasons & Bundles
           </button>
+
+          {(currentUser?.role === 'superadmin' || (currentUser?.username || '').toLowerCase() === 'fahad00cms') && (
+            <button
+              onClick={() => handleNavClick('admin')}
+              className={`tab-btn ${activeView === 'admin' ? 'active' : ''}`}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '6px',
+                color: activeView === 'admin' ? '#000' : '#f59e0b',
+                background: activeView === 'admin' ? '#f59e0b' : 'rgba(245, 158, 11, 0.12)',
+                borderColor: 'rgba(245, 158, 11, 0.4)',
+                fontWeight: '700'
+              }}
+            >
+              👑 Admin Dashboard
+            </button>
+          )}
         </div>
       </div>
 

@@ -177,6 +177,25 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     }
   };
 
+  const [showExtendModal, setShowExtendModal] = useState(false);
+  const [extendMinutes, setExtendMinutes] = useState(10);
+  const [isExtending, setIsExtending] = useState(false);
+
+  const handleExtendContest = async (mins) => {
+    const minutesToAdd = Number(mins || extendMinutes);
+    if (!minutesToAdd || minutesToAdd <= 0) return;
+    setIsExtending(true);
+    try {
+      await api.extendContest(contest.id, minutesToAdd);
+      setShowExtendModal(false);
+      await loadContest();
+    } catch (err) {
+      alert(err.message || 'Failed to extend contest');
+    } finally {
+      setIsExtending(false);
+    }
+  };
+
   const handleVerifyProblem = async (problemSlug) => {
     if (!username) {
       throw new Error('Please set your LeetCode handle in the participant profile bar above!');
@@ -525,6 +544,28 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
             </div>
           )}
 
+          {/* Extra Time Added Badge (Visible to all candidates & host) */}
+          {contest.extendedMinutes > 0 && (
+            <div
+              style={{
+                background: 'rgba(245, 158, 11, 0.12)',
+                border: '1px solid rgba(245, 158, 11, 0.4)',
+                borderRadius: 'var(--radius-md)',
+                padding: '6px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                color: '#f59e0b',
+                fontWeight: '700',
+                fontSize: '0.85rem'
+              }}
+              title={`Contest duration was extended by +${contest.extendedMinutes} minutes`}
+            >
+              <Clock size={14} color="#f59e0b" />
+              <span>+{contest.extendedMinutes}m Extra Time</span>
+            </div>
+          )}
+
           <Countdown
             status={contest.status}
             startTime={contest.startTime}
@@ -532,19 +573,113 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
             onTimerEnd={loadContest}
           />
 
-          {contest.status === 'WAITING' && (
+          {/* Start Contest (Organizer Only) */}
+          {contest.status === 'WAITING' && isOrganizer && (
             <button onClick={handleStartContest} className="btn btn-success">
               <Play size={16} /> Start Contest
             </button>
           )}
 
-          {contest.status === 'IN_PROGRESS' && (
-            <button onClick={handleFinishContest} className="btn btn-danger btn-sm">
-              End Contest
-            </button>
+          {/* Candidate Waiting State Indicator */}
+          {contest.status === 'WAITING' && !isOrganizer && (
+            <div
+              style={{
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-md)',
+                padding: '6px 12px',
+                fontSize: '0.85rem',
+                color: 'var(--text-muted)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <Clock size={13} color="var(--text-dim)" /> Waiting for Organizer
+            </div>
+          )}
+
+          {/* Organizer Match Active Controls (Extend Time & End Match) */}
+          {contest.status === 'IN_PROGRESS' && isOrganizer && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowExtendModal(true)}
+                className="btn btn-secondary btn-sm"
+                style={{ borderColor: 'rgba(245, 158, 11, 0.5)', color: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                title="Extend contest duration"
+              >
+                <Plus size={14} /> Extend Time
+              </button>
+              <button onClick={handleFinishContest} className="btn btn-danger btn-sm">
+                End Contest
+              </button>
+            </>
           )}
         </div>
       </div>
+
+      {/* Extend Time Modal */}
+      {showExtendModal && (
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '420px', padding: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Clock size={18} color="#f59e0b" />
+                <h3 style={{ fontSize: '1.15rem', fontWeight: '700' }}>Extend Contest Time</h3>
+              </div>
+              <button type="button" onClick={() => setShowExtendModal(false)} className="btn btn-secondary btn-sm" style={{ padding: '4px 8px' }}>
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '18px', lineHeight: '1.4' }}>
+              Add extra minutes to this live match. Candidates will immediately see the updated countdown and extra time badge.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '16px' }}>
+              {[5, 10, 15, 30].map(mins => (
+                <button
+                  key={mins}
+                  type="button"
+                  onClick={() => setExtendMinutes(mins)}
+                  className={`btn ${extendMinutes === mins ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                  style={{ fontWeight: '600' }}
+                >
+                  +{mins}m
+                </button>
+              ))}
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label className="form-label" style={{ fontSize: '0.8rem' }}>Or custom extra minutes:</label>
+              <input
+                type="number"
+                min="1"
+                max="180"
+                value={extendMinutes}
+                onChange={(e) => setExtendMinutes(Math.max(1, Number(e.target.value)))}
+                className="form-input"
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setShowExtendModal(false)} className="btn btn-secondary btn-sm">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExtendContest(extendMinutes)}
+                disabled={isExtending}
+                className="btn btn-primary btn-sm"
+                style={{ background: '#f59e0b', borderColor: '#f59e0b', color: '#000', fontWeight: '700' }}
+              >
+                {isExtending ? 'Applying...' : `+ Apply ${extendMinutes}m Extra Time`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 2-Column Grid */}
       <div className="arena-layout-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: '20px', alignItems: 'start' }}>
@@ -613,39 +748,43 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
           {/* Questions Tab */}
           {activeTab === 'questions' && (
             <div>
-              {contest.status === 'WAITING' && (
+              {contest.status === 'WAITING' ? (
                 <div style={{
-                  background: 'var(--accent-primary-light)',
-                  border: '1px solid var(--border-glow)',
+                  textAlign: 'center',
+                  padding: '48px 24px',
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: 'var(--radius-md)',
-                  padding: '12px 16px',
-                  marginBottom: '16px',
-                  fontSize: '0.9rem',
-                  color: 'var(--accent-primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
+                  margin: '10px 0'
                 }}>
-                  <AlertCircle size={16} />
-                  <span>Waiting for host to start the contest. Problems will unlock upon start.</span>
+                  <div style={{ fontSize: '2.8rem', marginBottom: '14px' }}>🔒</div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: '700', marginBottom: '8px' }}>Problems are Locked</h3>
+                  <p style={{ color: 'var(--text-muted)', maxWidth: '440px', margin: '0 auto 16px', lineHeight: '1.5', fontSize: '0.9rem' }}>
+                    Contest setup is in progress. The problems will unlock automatically and appear on this page as soon as the contest starts.
+                  </p>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 16px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-color)', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    <Clock size={14} color="var(--accent-primary)" /> Waiting for contest organizer to start the match...
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  {contest.problems?.map((prob, idx) => {
+                    const userSolve = userEntry?.solves?.find(s => s.problemSlug?.toLowerCase() === prob.titleSlug?.toLowerCase());
+                    return (
+                      <ProblemCard
+                        key={prob.titleSlug || idx}
+                        index={idx + 1}
+                        problem={prob}
+                        disabled={false}
+                        userSolved={!!userSolve}
+                        solvePenalty={userSolve?.penaltyMinutes}
+                        contestStatus={contest.status}
+                        onVerify={handleVerifyProblem}
+                      />
+                    );
+                  })}
                 </div>
               )}
-
-              {contest.problems?.map((prob, idx) => {
-                const userSolve = userEntry?.solves?.find(s => s.problemSlug?.toLowerCase() === prob.titleSlug?.toLowerCase());
-                return (
-                  <ProblemCard
-                    key={prob.titleSlug || idx}
-                    index={idx + 1}
-                    problem={prob}
-                    disabled={contest.status === 'WAITING'}
-                    userSolved={!!userSolve}
-                    solvePenalty={userSolve?.penaltyMinutes}
-                    contestStatus={contest.status}
-                    onVerify={handleVerifyProblem}
-                  />
-                );
-              })}
             </div>
           )}
 

@@ -252,6 +252,22 @@ export const api = {
     return await handleResponse(res);
   },
 
+  async extendContest(id, minutes) {
+    const res = await fetch(`${API_BASE}/api/contests/${id}/extend`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ minutes })
+    });
+    return await handleResponse(res);
+  },
+
+  async getAdminAnalytics() {
+    const res = await fetch(`${API_BASE}/api/admin/analytics`, {
+      headers: getAuthHeaders()
+    });
+    return await handleResponse(res);
+  },
+
   async verifySubmission(id, username, problemSlug) {
     const res = await fetch(`${API_BASE}/api/contests/${id}/verify`, {
       method: 'POST',
