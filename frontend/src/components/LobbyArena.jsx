@@ -264,8 +264,8 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     (currentUser.username || '').toLowerCase() === (contest.hostUsername || '').toLowerCase()
   )) || !!contest.isOrganizer;
 
-  // ENTRY GATE: If not yet joined, or editing profile, or private lobby locked
-  const requiresGate = (!hasEnteredArena && !isOrganizer) || (contest.isPrivate && !isPasswordUnlocked && !isOrganizer) || isEditingProfile;
+  // ENTRY GATE: If not yet joined, or private lobby locked
+  const requiresGate = (!hasEnteredArena && !isOrganizer) || (contest.isPrivate && !isPasswordUnlocked && !isOrganizer);
 
   if (requiresGate) {
     return (
@@ -378,17 +378,11 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
           <div style={{ display: 'flex', gap: '10px', marginTop: '22px' }}>
             <button
               type="button"
-              onClick={() => {
-                if (isEditingProfile) {
-                  setIsEditingProfile(false);
-                } else {
-                  onBack();
-                }
-              }}
+              onClick={onBack}
               className="btn btn-secondary"
               style={{ flex: 1 }}
             >
-              {isEditingProfile ? 'Cancel' : 'Back'}
+              Back
             </button>
 
             <button
@@ -432,19 +426,48 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
 
         {/* Status controls */}
         <div className="arena-status-group">
-          {/* Active Contestant Badge */}
+          {/* Active Contestant Alias Badge with Edit option */}
           {displayName && (
             <div
-              onClick={() => setIsEditingProfile(true)}
+              onClick={() => {
+                setDisplayNameInput(displayName);
+                setUsernameInput(username);
+                setIsEditingProfile(true);
+              }}
               className="arena-chip"
               style={{ cursor: 'pointer' }}
-              title="Click to edit contest alias / handle"
+              title="Click to edit your display name / alias"
             >
-              <span style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>Contestant:</span>
-              <strong style={{ fontSize: '0.85rem', color: 'var(--color-easy)' }}>
+              <span style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>Alias:</span>
+              <strong style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>
                 {displayName}
               </strong>
-              <Edit3 size={12} color="var(--text-dim)" />
+              <Edit3 size={11} color="var(--text-dim)" />
+            </div>
+          )}
+
+          {/* Selected LeetCode Handle Badge with Edit option */}
+          {username && (
+            <div
+              onClick={() => {
+                setDisplayNameInput(displayName);
+                setUsernameInput(username);
+                setIsEditingProfile(true);
+              }}
+              className="arena-chip"
+              style={{
+                cursor: 'pointer',
+                background: 'rgba(16, 185, 129, 0.08)',
+                borderColor: 'rgba(16, 185, 129, 0.35)'
+              }}
+              title="Click to update your LeetCode username"
+            >
+              <ShieldCheck size={13} color="var(--color-easy)" />
+              <span style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>LeetCode:</span>
+              <strong style={{ fontSize: '0.85rem', color: 'var(--color-easy)', fontFamily: 'var(--font-mono)' }}>
+                @{username}
+              </strong>
+              <Edit3 size={11} color="var(--color-easy)" />
             </div>
           )}
 
@@ -539,6 +562,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
             status={contest.status}
             startTime={contest.startTime}
             endTime={contest.endTime}
+            problemsCount={contest.problems?.length || 0}
             onTimerEnd={loadContest}
           />
 
@@ -575,6 +599,94 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
           )}
         </div>
       </div>
+
+      {/* Edit Contestant Profile Modal */}
+      {isEditingProfile && (
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '440px', padding: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <User size={18} color="var(--accent-primary)" />
+                <h3 style={{ fontSize: '1.15rem', fontWeight: '700' }}>Update Contestant Profile</h3>
+              </div>
+              <button type="button" onClick={() => setIsEditingProfile(false)} className="btn btn-secondary btn-sm" style={{ padding: '4px 8px' }}>
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleJoinArenaSubmit}>
+              <div className="form-group">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label className="form-label" style={{ fontWeight: '700', marginBottom: 0 }}>
+                    Contest Display Name / Alias *
+                  </label>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+                    {displayNameInput.length}/25
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  maxLength={25}
+                  value={displayNameInput}
+                  onChange={(e) => setDisplayNameInput(e.target.value.slice(0, 25))}
+                  className="form-input"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: '700' }}>
+                  <ShieldCheck size={13} color="var(--color-easy)" style={{ display: 'inline', marginRight: '4px' }} />
+                  LeetCode Username (Confidential) *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. alexzu2000"
+                  value={usernameInput}
+                  onChange={(e) => setUsernameInput(e.target.value)}
+                  className="form-input"
+                  required
+                />
+                <span style={{ fontSize: '0.75rem', color: 'var(--color-easy)', marginTop: '4px', display: 'block', lineHeight: 1.3 }}>
+                  🔒 Used in real-time to verify your LeetCode AC submissions.
+                </span>
+              </div>
+
+              {entryError && (
+                <div style={{
+                  background: 'rgba(244, 63, 94, 0.12)',
+                  border: '1px solid rgba(244, 63, 94, 0.35)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '8px 12px',
+                  marginBottom: '14px',
+                  fontSize: '0.825rem',
+                  color: '#fb7185',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <AlertCircle size={15} />
+                  <span>{entryError}</span>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
+                <button type="button" onClick={() => setIsEditingProfile(false)} className="btn btn-secondary btn-sm">
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isJoining || !displayNameInput.trim() || !usernameInput.trim()}
+                  className="btn btn-primary btn-sm"
+                  style={{ fontWeight: '700' }}
+                >
+                  {isJoining ? 'Saving...' : 'Save & Update Profile'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Extend Time Modal */}
       {showExtendModal && (
