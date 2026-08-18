@@ -411,26 +411,19 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
   return (
     <div>
       {/* Top Header */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '16px',
-        marginBottom: '20px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <button onClick={onBack} className="btn btn-secondary btn-sm" title="Back to Lobbies">
+      <div className="arena-header">
+        <div className="arena-title-area">
+          <button onClick={onBack} className="btn btn-secondary btn-sm" title="Back to Lobbies" style={{ flexShrink: 0 }}>
             <ArrowLeft size={16} />
           </button>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h1 style={{ fontSize: '1.6rem', fontWeight: '800', letterSpacing: '-0.02em' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <h1 className="arena-title-text">
                 {contest.title}
               </h1>
               {contest.seasonTitle && (
-                <span className="badge badge-blue" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  <Layers size={12} /> {contest.seasonTitle} (Round #{contest.seasonRound || 1})
+                <span className="badge badge-blue" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem' }}>
+                  <Layers size={11} /> {contest.seasonTitle} (Round #{contest.seasonRound || 1})
                 </span>
               )}
             </div>
@@ -438,72 +431,53 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
         </div>
 
         {/* Status controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <div className="arena-status-group">
           {/* Active Contestant Badge */}
           {displayName && (
             <div
               onClick={() => setIsEditingProfile(true)}
-              style={{
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border-color)',
-                borderRadius: 'var(--radius-md)',
-                padding: '6px 12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                cursor: 'pointer'
-              }}
+              className="arena-chip"
+              style={{ cursor: 'pointer' }}
               title="Click to edit contest alias / handle"
             >
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Contestant:</span>
-              <strong style={{ fontSize: '0.9rem', color: 'var(--color-easy)' }}>
+              <span style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>Contestant:</span>
+              <strong style={{ fontSize: '0.85rem', color: 'var(--color-easy)' }}>
                 {displayName}
               </strong>
-              <Edit3 size={13} color="var(--text-dim)" />
+              <Edit3 size={12} color="var(--text-dim)" />
             </div>
           )}
 
           {/* Lobby ID Card */}
           <div
             onClick={handleCopyLobbyLink}
-            style={{
-              background: 'var(--bg-input)',
-              border: '1px solid var(--border-color)',
-              borderRadius: 'var(--radius-md)',
-              padding: '6px 14px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              cursor: 'pointer'
-            }}
+            className="arena-chip"
+            style={{ cursor: 'pointer' }}
             title="Click to copy full invite link"
           >
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Lobby ID:</span>
-            <strong style={{ fontFamily: 'var(--font-mono)', fontSize: '1.05rem', color: '#60a5fa', letterSpacing: '0.05em' }}>
+            <span style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>ID:</span>
+            <strong style={{ fontFamily: 'var(--font-mono)', fontSize: '0.95rem', color: '#60a5fa', letterSpacing: '0.05em' }}>
               {contest.code}
             </strong>
-            {copiedLink ? <Check size={14} color="var(--color-easy)" /> : <Share2 size={14} color="var(--text-dim)" />}
+            {copiedLink ? <Check size={13} color="var(--color-easy)" /> : <Share2 size={13} color="var(--text-dim)" />}
           </div>
 
           {/* Organizer / Admin Password Card */}
           {contest.isPrivate && (contest.password || isOrganizer) && contest.password !== '' && (
             <div
+              className="arena-chip"
               style={{
                 background: 'rgba(245, 158, 11, 0.1)',
-                border: '1px solid rgba(245, 158, 11, 0.35)',
-                borderRadius: 'var(--radius-md)',
-                padding: '5px 12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
+                borderColor: 'rgba(245, 158, 11, 0.35)',
+                color: '#f59e0b'
               }}
               title="Contest Password (Visible to Creator / Organizer)"
             >
-              <Lock size={14} color="#f59e0b" />
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600' }}>Pass:</span>
+              <Lock size={13} color="#f59e0b" />
+              <span style={{ fontSize: '0.775rem', color: 'var(--text-muted)', fontWeight: '600' }}>Pass:</span>
               <strong style={{
                 fontFamily: 'var(--font-mono)',
-                fontSize: '0.95rem',
+                fontSize: '0.9rem',
                 color: '#f59e0b',
                 letterSpacing: '0.05em'
               }}>
@@ -523,7 +497,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
                 }}
                 title={showPassword ? "Hide password" : "Reveal password"}
               >
-                {showPassword ? <EyeOffIcon size={14} color="var(--text-dim)" /> : <EyeIcon size={14} color="#f59e0b" />}
+                {showPassword ? <EyeOffIcon size={13} color="var(--text-dim)" /> : <EyeIcon size={13} color="#f59e0b" />}
               </button>
               <button
                 type="button"
@@ -539,7 +513,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
                 }}
                 title="Copy password"
               >
-                {copiedPass ? <Check size={14} color="var(--color-easy)" /> : <Share2 size={13} />}
+                {copiedPass ? <Check size={13} color="var(--color-easy)" /> : <Share2 size={12} />}
               </button>
             </div>
           )}
@@ -547,22 +521,17 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
           {/* Extra Time Added Badge (Visible to all candidates & host) */}
           {contest.extendedMinutes > 0 && (
             <div
+              className="arena-chip"
               style={{
                 background: 'rgba(245, 158, 11, 0.12)',
-                border: '1px solid rgba(245, 158, 11, 0.4)',
-                borderRadius: 'var(--radius-md)',
-                padding: '6px 12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
+                borderColor: 'rgba(245, 158, 11, 0.4)',
                 color: '#f59e0b',
-                fontWeight: '700',
-                fontSize: '0.85rem'
+                fontWeight: '700'
               }}
               title={`Contest duration was extended by +${contest.extendedMinutes} minutes`}
             >
-              <Clock size={14} color="#f59e0b" />
-              <span>+{contest.extendedMinutes}m Extra Time</span>
+              <Clock size={13} color="#f59e0b" />
+              <span>+{contest.extendedMinutes}m Extra</span>
             </div>
           )}
 
@@ -575,27 +544,15 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
 
           {/* Start Contest (Organizer Only) */}
           {contest.status === 'WAITING' && isOrganizer && (
-            <button onClick={handleStartContest} className="btn btn-success">
-              <Play size={16} /> Start Contest
+            <button onClick={handleStartContest} className="btn btn-success btn-sm">
+              <Play size={15} /> Start Contest
             </button>
           )}
 
           {/* Candidate Waiting State Indicator */}
           {contest.status === 'WAITING' && !isOrganizer && (
-            <div
-              style={{
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border-color)',
-                borderRadius: 'var(--radius-md)',
-                padding: '6px 12px',
-                fontSize: '0.85rem',
-                color: 'var(--text-muted)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <Clock size={13} color="var(--text-dim)" /> Waiting for Organizer
+            <div className="arena-chip" style={{ color: 'var(--text-muted)' }}>
+              <Clock size={12} color="var(--text-dim)" /> Waiting for Host
             </div>
           )}
 
@@ -686,8 +643,17 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
         
         {/* Left Column */}
         <div className="glass-panel" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', marginBottom: '20px' }}>
-            <div className="tabs" style={{ borderBottom: 'none', marginBottom: 0 }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '10px',
+            borderBottom: '1px solid var(--border-color)',
+            paddingBottom: '8px',
+            marginBottom: '20px'
+          }}>
+            <div className="tabs" style={{ borderBottom: 'none', marginBottom: 0, paddingBottom: 0 }}>
               <button
                 onClick={() => setActiveTab('questions')}
                 className={`tab-btn ${activeTab === 'questions' ? 'active' : ''}`}
@@ -698,13 +664,13 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
                 onClick={() => setActiveTab('ranking')}
                 className={`tab-btn ${activeTab === 'ranking' ? 'active' : ''}`}
               >
-                <Trophy size={16} /> Live Rankings
+                <Trophy size={15} /> Rankings
               </button>
               <button
                 onClick={() => setActiveTab('chat')}
                 className={`tab-btn mobile-only-tab ${activeTab === 'chat' ? 'active' : ''}`}
               >
-                💬 Live Chat ({messages?.length || 0})
+                💬 Chat ({messages?.length || 0})
               </button>
             </div>
 
@@ -715,13 +681,14 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
                 border: 'none',
                 color: 'var(--text-muted)',
                 cursor: 'pointer',
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
-                fontSize: '0.85rem'
+                gap: '5px',
+                fontSize: '0.8rem',
+                padding: '4px 8px'
               }}
             >
-              <HelpCircle size={15} /> How to Submit?
+              <HelpCircle size={14} /> How to Submit?
             </button>
           </div>
 

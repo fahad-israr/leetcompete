@@ -53,50 +53,27 @@ export default function ProblemCard({
   const leetcodeUrl = `https://leetcode.com/problems/${problem.titleSlug}/`;
 
   return (
-    <div
-      style={{
-        background: isSolved ? 'rgba(16, 185, 129, 0.07)' : 'var(--bg-card)',
-        border: `1px solid ${isSolved ? 'rgba(16, 185, 129, 0.45)' : 'var(--border-color)'}`,
-        borderRadius: 'var(--radius-md)',
-        padding: '16px 20px',
-        marginBottom: '12px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '12px',
-        transition: 'all 0.2s ease'
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+    <div className={`problem-card-item ${isSolved ? 'solved' : ''}`}>
+      <div className="problem-card-content">
         {/* Left Info */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            background: isSolved ? 'var(--color-easy)' : 'var(--bg-input)',
-            color: isSolved ? '#fff' : 'var(--text-muted)',
-            fontFamily: 'var(--font-mono)',
-            fontWeight: '700',
-            fontSize: '0.9rem',
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            border: `1px solid ${isSolved ? 'var(--color-easy)' : 'var(--border-color)'}`
-          }}>
+        <div className="problem-card-info">
+          <div className={`problem-number-badge ${isSolved ? 'solved' : ''}`}>
             {isSolved ? '✓' : index + 1}
           </div>
 
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '1.05rem', fontWeight: '700', color: 'var(--text-main)' }}>
+          <div className="problem-details">
+            <div className="problem-header-row">
+              <span className="problem-title-link">
                 Problem {index + 1}: {problem.title}
               </span>
-              <span className={`badge badge-${problem.difficulty?.toLowerCase() || 'medium'}`}>
-                {problem.difficulty || 'Medium'}
-              </span>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-                {problem.points || 100} pts
-              </span>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span className={`badge badge-${problem.difficulty?.toLowerCase() || 'medium'}`}>
+                  {problem.difficulty || 'Medium'}
+                </span>
+                <span style={{ fontSize: '0.775rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontWeight: '600' }}>
+                  {problem.points || 100} pts
+                </span>
+              </div>
             </div>
 
             <a
@@ -110,21 +87,22 @@ export default function ProblemCard({
                 fontSize: '0.825rem',
                 color: 'var(--accent-purple)',
                 textDecoration: 'none',
-                marginTop: '4px'
+                marginTop: '3px'
               }}
             >
               <span>Solve on LeetCode</span>
-              <ExternalLink size={13} />
+              <ExternalLink size={12} />
             </a>
           </div>
         </div>
 
         {/* Right Submit Button */}
-        <div>
+        <div className="problem-action-area">
           {isSolved ? (
             <div style={{
               display: 'flex',
               alignItems: 'center',
+              justifyContent: 'center',
               gap: '6px',
               background: 'rgba(16, 185, 129, 0.15)',
               border: '1px solid rgba(16, 185, 129, 0.4)',
@@ -132,9 +110,10 @@ export default function ProblemCard({
               padding: '6px 14px',
               borderRadius: 'var(--radius-sm)',
               fontWeight: '700',
-              fontSize: '0.875rem'
+              fontSize: '0.85rem',
+              width: '100%'
             }}>
-              <CheckCircle2 size={16} />
+              <CheckCircle2 size={15} />
               <span>Solved (+{solvePenalty}m)</span>
             </div>
           ) : (
@@ -142,8 +121,8 @@ export default function ProblemCard({
               type="button"
               onClick={handleVerifyClick}
               disabled={disabled || isVerifying || contestStatus !== 'IN_PROGRESS'}
-              className="btn btn-primary"
-              style={{ minWidth: '105px' }}
+              className="btn btn-primary btn-sm"
+              style={{ minWidth: '100px', fontWeight: '700' }}
             >
               {isVerifying ? (
                 <>
