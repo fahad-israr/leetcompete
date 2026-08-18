@@ -186,6 +186,15 @@ export const api = {
     return await handleResponse(res);
   },
 
+  async addProblemsToSeason(id, { problems, input }) {
+    const res = await fetch(`${API_BASE}/api/seasons/${id}/add-problems`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ problems, input })
+    });
+    return await handleResponse(res);
+  },
+
   async importProblemList(listUrlOrInput) {
     const res = await fetch(`${API_BASE}/api/problems/import-list`, {
       method: 'POST',

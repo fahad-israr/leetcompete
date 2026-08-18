@@ -910,6 +910,82 @@ exports.handler = async (event) => {
       });
     }
 
+    // Add Problems to Season Pool (Owner Only, with automatic deduplication)
+    const seasonAddProblemsMatch = path.match(/^\/api\/seasons\/([a-zA-Z0-9_-]+)\/add-problems$/);
+    if (seasonAddProblemsMatch && httpMethod === 'POST') {
+      if (!authUser || !authUser.username) {
+        return jsonResponse(401, { success: false, error: 'Authentication required.' });
+      }
+      const seasonId = seasonAddProblemsMatch[1];
+      const res = await docClient.send(new GetCommand({
+        TableName: SEASONS_TABLE,
+        Key: { id: seasonId }
+      }));
+
+      if (!res.Item) {
+        return jsonResponse(404, { success: false, error: 'Season not found' });
+      }
+
+      const season = res.Item;
+      const isOwner = (season.ownerUsername || '').toLowerCase() === authUser.username.toLowerCase() || isSuperAdmin(authUser);
+      if (!isOwner) {
+        return jsonResponse(403, { success: false, error: 'Access denied. You do not own this season.' });
+      }
+
+      const { problems = [], input } = body;
+      let newProblems = [...problems];
+
+      if (input && typeof input === 'string') {
+        const resolved = await resolveListOrUrls(input);
+        newProblems = [...newProblems, ...resolved];
+      }
+
+      // Deduplicate against existing pool and within newProblems by titleSlug
+      const existingSlugs = new Set((season.pool || []).map(p => (p.titleSlug || '').toLowerCase().trim()));
+      const addedProblems = [];
+      let skippedCount = 0;
+
+      for (const prob of newProblems) {
+        if (!prob || !prob.titleSlug) continue;
+        const slugLower = prob.titleSlug.toLowerCase().trim();
+        if (existingSlugs.has(slugLower)) {
+          skippedCount++;
+        } else {
+          existingSlugs.add(slugLower);
+          addedProblems.push({
+            frontendId: String(prob.frontendId || prob.questionFrontendId || ''),
+            title: prob.title || prob.titleSlug,
+            titleSlug: prob.titleSlug,
+            difficulty: prob.difficulty ? (prob.difficulty.charAt(0).toUpperCase() + prob.difficulty.slice(1).toLowerCase()) : 'Medium',
+            topicTags: prob.topicTags || []
+          });
+        }
+      }
+
+      const updatedPool = [...(season.pool || []), ...addedProblems];
+
+      await docClient.send(new UpdateCommand({
+        TableName: SEASONS_TABLE,
+        Key: { id: seasonId },
+        UpdateExpression: 'SET #p = :pool',
+        ExpressionAttributeNames: { '#p': 'pool' },
+        ExpressionAttributeValues: { ':pool': updatedPool }
+      }));
+
+      return jsonResponse(200, {
+        success: true,
+        message: `Successfully added ${addedProblems.length} new problem(s) to season pool (${skippedCount} duplicate(s) skipped).`,
+        addedCount: addedProblems.length,
+        skippedCount,
+        totalPoolCount: updatedPool.length,
+        season: {
+          ...season,
+          pool: updatedPool,
+          totalPoolCount: updatedPool.length
+        }
+      });
+    }
+
     // Generate Round from Season Pool (Owner Only)
     const seasonRoundMatch = path.match(/^\/api\/seasons\/([a-zA-Z0-9_-]+)\/generate-round$/);
     if (seasonRoundMatch && httpMethod === 'POST') {
