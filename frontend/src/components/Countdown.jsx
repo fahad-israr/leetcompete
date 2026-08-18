@@ -1,20 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Loader2 } from 'lucide-react';
+import { Clock, Loader2, Calendar } from 'lucide-react';
 
-export default function Countdown({ status, startTime, endTime, problemsCount = 0, onTimerEnd }) {
+export default function Countdown({ status, startTime, endTime, scheduledStartTime, timezone = 'UTC', problemsCount = 0, onTimerEnd }) {
   const [timeLeft, setTimeLeft] = useState(0);
+  const [scheduledDiff, setScheduledDiff] = useState(0);
 
   useEffect(() => {
     function updateTimer() {
       const now = Math.floor(Date.now() / 1000);
 
       if (status === 'WAITING') {
+        if (scheduledStartTime) {
+          const diff = Math.max(0, scheduledStartTime - now);
+          setScheduledDiff(diff);
+        } else {
+          setScheduledDiff(0);
+        }
         setTimeLeft(0);
         return;
       }
 
       if (status === 'FINISHED') {
         setTimeLeft(0);
+        setScheduledDiff(0);
         return;
       }
 
@@ -30,9 +38,58 @@ export default function Countdown({ status, startTime, endTime, problemsCount = 
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [status, startTime, endTime, problemsCount, onTimerEnd]);
+  }, [status, startTime, endTime, scheduledStartTime, problemsCount, onTimerEnd]);
+
+  const pad = (n) => String(n).padStart(2, '0');
 
   if (status === 'WAITING') {
+    if (scheduledStartTime && scheduledDiff > 0) {
+      const days = Math.floor(scheduledDiff / 86400);
+      const hours = Math.floor((scheduledDiff % 86400) / 3600);
+      const minutes = Math.floor((scheduledDiff % 3600) / 60);
+      const seconds = scheduledDiff % 60;
+
+      return (
+        <div
+          className="timer-display arena-chip"
+          style={{
+            background: 'rgba(96, 165, 250, 0.1)',
+            borderColor: 'rgba(96, 165, 250, 0.4)',
+            color: '#60a5fa',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.9rem',
+            fontWeight: '700',
+            letterSpacing: '0.03em',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+          title={`Scheduled Start: ${new Date(scheduledStartTime * 1000).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} (${timezone})`}
+        >
+          <Calendar size={13} color="#60a5fa" />
+          <span>Starts in {days > 0 ? `${days}d ` : ''}{pad(hours)}:{pad(minutes)}:{pad(seconds)}</span>
+        </div>
+      );
+    }
+
+    if (scheduledStartTime && scheduledDiff <= 0) {
+      return (
+        <div
+          className="timer-display arena-chip"
+          style={{
+            background: 'rgba(245, 158, 11, 0.1)',
+            borderColor: 'rgba(245, 158, 11, 0.4)',
+            color: '#f59e0b',
+            fontSize: '0.85rem',
+            fontWeight: '700'
+          }}
+        >
+          <Clock size={13} color="#f59e0b" />
+          Starting Soon (Waiting for Host)
+        </div>
+      );
+    }
+
     return (
       <div
         className="timer-display arena-chip"
@@ -85,7 +142,6 @@ export default function Countdown({ status, startTime, endTime, problemsCount = 
   const hours = Math.floor(timeLeft / 3600);
   const minutes = Math.floor((timeLeft % 3600) / 60);
   const seconds = timeLeft % 60;
-  const pad = (n) => String(n).padStart(2, '0');
 
   const isLowTime = timeLeft < 300 && timeLeft > 0;
 

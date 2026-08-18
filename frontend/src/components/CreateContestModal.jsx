@@ -1,7 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { X, Play, Clock, Trophy, Lock, Globe, Layers, AlertCircle, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Play, Clock, Trophy, Lock, Globe, Layers, AlertCircle, Loader2, Calendar, Zap, CheckCircle2 } from 'lucide-react';
 import ProblemPicker from './ProblemPicker';
 import { api } from '../services/api';
+
+const POPULAR_TIMEZONES = [
+  { value: 'UTC', label: 'UTC (Coordinated Universal Time)' },
+  { value: 'America/New_York', label: 'America/New_York (EST / EDT, UTC-5 / UTC-4)' },
+  { value: 'America/Chicago', label: 'America/Chicago (CST / CDT, UTC-6 / UTC-5)' },
+  { value: 'America/Denver', label: 'America/Denver (MST / MDT, UTC-7 / UTC-6)' },
+  { value: 'America/Los_Angeles', label: 'America/Los_Angeles (PST / PDT, UTC-8 / UTC-7)' },
+  { value: 'Europe/London', label: 'Europe/London (GMT / BST, UTC+0 / UTC+1)' },
+  { value: 'Europe/Paris', label: 'Europe/Paris (CET / CEST, UTC+1 / UTC+2)' },
+  { value: 'Europe/Berlin', label: 'Europe/Berlin (CET / CEST, UTC+1 / UTC+2)' },
+  { value: 'Asia/Dubai', label: 'Asia/Dubai (GST, UTC+4)' },
+  { value: 'Asia/Kolkata', label: 'Asia/Kolkata (IST, UTC+5:30)' },
+  { value: 'Asia/Singapore', label: 'Asia/Singapore (SGT, UTC+8)' },
+  { value: 'Asia/Tokyo', label: 'Asia/Tokyo (JST, UTC+9)' },
+  { value: 'Asia/Shanghai', label: 'Asia/Shanghai (CST, UTC+8)' },
+  { value: 'Australia/Sydney', label: 'Australia/Sydney (AEST / AEDT, UTC+10 / UTC+11)' }
+];
 
 export default function CreateContestModal({ isOpen, onClose, onContestCreated, initialSeasonId = null }) {
   const [title, setTitle] = useState('');
@@ -11,6 +28,17 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
   const [isPrivate, setIsPrivate] = useState(false);
   const [password, setPassword] = useState('');
   const [hostUsername, setHostUsername] = useState('');
+
+  // Start Mode: 'instant' or 'scheduled'
+  const [scheduleMode, setScheduleMode] = useState('instant');
+  const [scheduledDateTime, setScheduledDateTime] = useState('');
+  const [timezone, setTimezone] = useState(() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    } catch (e) {
+      return 'UTC';
+    }
+  });
   
   // Mandatory Difficulty Counts (Defaults: 1 Easy, 2 Medium, 1 Hard)
   const [countEasy, setCountEasy] = useState(1);
@@ -21,6 +49,7 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Auto-fill default scheduled time to 2 hours from now in YYYY-MM-DDTHH:mm format
   useEffect(() => {
     if (isOpen) {
       loadSeasons();
@@ -34,6 +63,15 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
       setIsPrivate(false);
       setPassword('');
       setErrorMessage('');
+      setScheduleMode('instant');
+
+      const future = new Date(Date.now() + 2 * 3600 * 1000);
+      const year = future.getFullYear();
+      const month = String(future.getMonth() + 1).padStart(2, '0');
+      const day = String(future.getDate()).padStart(2, '0');
+      const hours = String(future.getHours()).padStart(2, '0');
+      const mins = String(future.getMinutes()).padStart(2, '0');
+      setScheduledDateTime(`${year}-${month}-${day}T${hours}:${mins}`);
     }
   }, [isOpen, initialSeasonId]);
 
@@ -45,6 +83,38 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
       console.error('Failed to load seasons:', err);
     }
   };
+
+  // Compute live human-readable preview of the scheduled time
+  const scheduledPreview = useMemo(() => {
+    if (scheduleMode !== 'scheduled' || !scheduledDateTime) return null;
+    try {
+      const dt = new Date(scheduledDateTime);
+      const epochSeconds = Math.floor(dt.getTime() / 1000);
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      const diff = epochSeconds - nowSeconds;
+
+      const isPast = diff <= 0;
+      const hours = Math.floor(Math.abs(diff) / 3600);
+      const mins = Math.floor((Math.abs(diff) % 3600) / 60);
+
+      const localStr = dt.toLocaleString([], {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      return {
+        epochSeconds,
+        isPast,
+        diffText: isPast ? 'Selected time is in the past' : `Starts in ${hours > 0 ? `${hours}h ` : ''}${mins}m`,
+        localStr
+      };
+    } catch (e) {
+      return null;
+    }
+  }, [scheduleMode, scheduledDateTime]);
 
   if (!isOpen) return null;
 
@@ -60,6 +130,21 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
     if (isPrivate && !password.trim()) {
       setErrorMessage('Please provide a password for this private contest.');
       return;
+    }
+
+    let scheduledStartTimeEpoch = null;
+    if (scheduleMode === 'scheduled') {
+      if (!scheduledDateTime) {
+        setErrorMessage('Please choose a date and time for the scheduled match.');
+        return;
+      }
+      const dt = new Date(scheduledDateTime);
+      scheduledStartTimeEpoch = Math.floor(dt.getTime() / 1000);
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      if (scheduledStartTimeEpoch <= nowSeconds) {
+        setErrorMessage('Scheduled start time must be in the future.');
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -96,6 +181,8 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
         countHard,
         hostUsername: hostUsername.trim() || 'Host',
         password: isPrivate ? password.trim() : undefined,
+        scheduledStartTime: scheduledStartTimeEpoch,
+        timezone: timezone || 'UTC',
         problems: finalProblems
       });
 
@@ -117,9 +204,18 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
 
   const selectedSeason = seasons.find(s => s.id === seasonId);
 
+  // Timezone options (prepend current if unique)
+  const timezoneOptions = useMemo(() => {
+    const list = [...POPULAR_TIMEZONES];
+    if (timezone && !list.some(tz => tz.value === timezone)) {
+      list.unshift({ value: timezone, label: `${timezone} (Local Device Timezone)` });
+    }
+    return list;
+  }, [timezone]);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '820px' }}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '840px' }}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{
@@ -221,6 +317,124 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
               </div>
             </div>
 
+            {/* Launch Timing: Instant Live vs Schedule in Advance */}
+            <div className="form-group" style={{ marginBottom: '18px' }}>
+              <label className="form-label" style={{ fontWeight: '700', fontSize: '0.85rem' }}>
+                Launch Timing *
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div
+                  onClick={() => setScheduleMode('instant')}
+                  style={{
+                    border: `2px solid ${scheduleMode === 'instant' ? 'var(--accent-primary)' : 'var(--border-color)'}`,
+                    background: scheduleMode === 'instant' ? 'var(--accent-primary-light)' : 'var(--bg-input)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '12px 14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '0.925rem', color: scheduleMode === 'instant' ? 'var(--accent-primary)' : 'var(--text-main)' }}>
+                    <Zap size={17} />
+                    <span>Instant Live Lobby</span>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', lineHeight: 1.3 }}>
+                    Launch room immediately. Match starts when host clicks Start.
+                  </span>
+                </div>
+
+                <div
+                  onClick={() => setScheduleMode('scheduled')}
+                  style={{
+                    border: `2px solid ${scheduleMode === 'scheduled' ? '#60a5fa' : 'var(--border-color)'}`,
+                    background: scheduleMode === 'scheduled' ? 'rgba(96, 165, 250, 0.08)' : 'var(--bg-input)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '12px 14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '0.925rem', color: scheduleMode === 'scheduled' ? '#60a5fa' : 'var(--text-main)' }}>
+                    <Calendar size={17} />
+                    <span>Schedule in Advance</span>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', lineHeight: 1.3 }}>
+                    Set exact future date, time, and timezone. Timer counts down.
+                  </span>
+                </div>
+              </div>
+
+              {/* Scheduled Date, Time & Timezone Inputs */}
+              {scheduleMode === 'scheduled' && (
+                <div style={{
+                  background: 'var(--bg-input)',
+                  border: '1px solid rgba(96, 165, 250, 0.35)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '14px'
+                }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: '700', color: '#60a5fa' }}>
+                        Start Date & Time *
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={scheduledDateTime}
+                        onChange={(e) => setScheduledDateTime(e.target.value)}
+                        className="form-input"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: '700', color: '#60a5fa' }}>
+                        Timezone *
+                      </label>
+                      <select
+                        value={timezone}
+                        onChange={(e) => setTimezone(e.target.value)}
+                        className="form-select"
+                      >
+                        {timezoneOptions.map(tz => (
+                          <option key={tz.value} value={tz.value}>
+                            {tz.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {scheduledPreview && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 14px',
+                      background: scheduledPreview.isPast ? 'rgba(244, 63, 94, 0.12)' : 'rgba(96, 165, 250, 0.12)',
+                      border: `1px solid ${scheduledPreview.isPast ? 'rgba(244, 63, 94, 0.3)' : 'rgba(96, 165, 250, 0.35)'}`,
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.825rem',
+                      color: scheduledPreview.isPast ? '#fb7185' : '#93c5fd'
+                    }}>
+                      {scheduledPreview.isPast ? <AlertCircle size={15} /> : <CheckCircle2 size={15} />}
+                      <div>
+                        <strong>Scheduled Start:</strong> {scheduledPreview.localStr} ({timezone}) • <em>{scheduledPreview.diffText}</em>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Public vs Private Lobby Access Selector */}
             <div className="form-group" style={{ marginBottom: '20px' }}>
               <label className="form-label" style={{ fontWeight: '700', fontSize: '0.85rem' }}>
@@ -320,12 +534,12 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
               {isSubmitting ? (
                 <>
                   <Loader2 size={16} className="spin-animation" />
-                  <span>Launching Arena...</span>
+                  <span>{scheduleMode === 'scheduled' ? 'Scheduling...' : 'Launching Arena...'}</span>
                 </>
               ) : (
                 <>
-                  <Play size={16} />
-                  <span>Launch Contest Arena</span>
+                  {scheduleMode === 'scheduled' ? <Calendar size={16} /> : <Play size={16} />}
+                  <span>{scheduleMode === 'scheduled' ? 'Schedule Contest' : 'Launch Contest Arena'}</span>
                 </>
               )}
             </button>

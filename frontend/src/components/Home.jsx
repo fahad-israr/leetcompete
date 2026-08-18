@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Flame, Trophy, Plus, Compass, Sparkles, Users, Clock, ArrowRight, ShieldCheck, Layers, Lock, Globe, Code2 } from 'lucide-react';
+import { Flame, Trophy, Plus, Compass, Sparkles, Users, Clock, ArrowRight, ShieldCheck, Layers, Lock, Globe, Code2, Calendar } from 'lucide-react';
 import { api } from '../services/api';
 
 export default function Home({
@@ -11,7 +11,7 @@ export default function Home({
   const [contests, setContests] = useState([]);
   const [seasons, setSeasons] = useState([]);
   const [joinCode, setJoinCode] = useState('');
-  const [filterType, setFilterType] = useState('all'); // 'all' | 'public' | 'private'
+  const [filterType, setFilterType] = useState('all'); // 'all' | 'live' | 'scheduled' | 'private'
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -45,7 +45,8 @@ export default function Home({
     // Only show active lobbies (WAITING or IN_PROGRESS within time limit)
     if (c.status === 'FINISHED') return false;
     if (c.status === 'IN_PROGRESS' && c.endTime && now >= c.endTime) return false;
-    if (filterType === 'public' && c.isPrivate) return false;
+    if (filterType === 'live' && c.status !== 'IN_PROGRESS') return false;
+    if (filterType === 'scheduled' && (!c.scheduledStartTime || c.status !== 'WAITING')) return false;
     if (filterType === 'private' && !c.isPrivate) return false;
     return true;
   });
@@ -210,25 +211,32 @@ export default function Home({
             </h2>
 
             {/* Filter Pills */}
-            <div style={{ display: 'flex', gap: '4px' }}>
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
               <button
                 onClick={() => setFilterType('all')}
                 className={`btn btn-sm ${filterType === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ padding: '3px 9px', fontSize: '0.75rem', minHeight: '28px' }}
+                style={{ padding: '3px 8px', fontSize: '0.75rem', minHeight: '26px' }}
               >
                 All
               </button>
               <button
-                onClick={() => setFilterType('public')}
-                className={`btn btn-sm ${filterType === 'public' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ padding: '3px 9px', fontSize: '0.75rem', minHeight: '28px' }}
+                onClick={() => setFilterType('live')}
+                className={`btn btn-sm ${filterType === 'live' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '3px 8px', fontSize: '0.75rem', minHeight: '26px' }}
               >
-                Public
+                Live Now
+              </button>
+              <button
+                onClick={() => setFilterType('scheduled')}
+                className={`btn btn-sm ${filterType === 'scheduled' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '3px 8px', fontSize: '0.75rem', minHeight: '26px' }}
+              >
+                Scheduled
               </button>
               <button
                 onClick={() => setFilterType('private')}
                 className={`btn btn-sm ${filterType === 'private' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ padding: '3px 9px', fontSize: '0.75rem', minHeight: '28px' }}
+                style={{ padding: '3px 8px', fontSize: '0.75rem', minHeight: '26px' }}
               >
                 Private
               </button>
@@ -239,11 +247,11 @@ export default function Home({
             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-dim)' }}>Loading contests...</div>
           ) : filteredContests.length === 0 ? (
             <div className="glass-panel" style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-dim)' }}>
-              No contests found. Click <strong>Host Contest</strong> to create a lobby!
+              No contests found. Click <strong>Host Contest</strong> to create or schedule a lobby!
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {filteredContests.slice(0, 6).map((c) => (
+              {filteredContests.slice(0, 8).map((c) => (
                 <div
                   key={c.id}
                   className="card"
@@ -265,6 +273,11 @@ export default function Home({
                       <span className={`badge badge-${c.status === 'IN_PROGRESS' ? 'easy' : c.status === 'FINISHED' ? 'hard' : 'medium'}`}>
                         {c.status}
                       </span>
+                      {c.scheduledStartTime && c.status === 'WAITING' && (
+                        <span className="badge badge-purple" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.72rem' }}>
+                          <Calendar size={10} /> {new Date(c.scheduledStartTime * 1000).toLocaleDateString([], { month: 'short', day: 'numeric' })}, {new Date(c.scheduledStartTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
                       {c.isPrivate ? (
                         <span className="badge badge-lock">
                           <Lock size={10} /> Private

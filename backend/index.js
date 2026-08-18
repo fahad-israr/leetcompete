@@ -1070,6 +1070,8 @@ exports.handler = async (event) => {
           status: currentStatus,
           startTime: c.startTime,
           endTime: c.endTime,
+          scheduledStartTime: c.scheduledStartTime || null,
+          timezone: c.timezone || null,
           isActive,
           hostUsername: c.hostUsername || c.ownerUsername,
           problemCount: c.problems?.length || 0,
@@ -1099,7 +1101,9 @@ exports.handler = async (event) => {
         countHard = 1,
         hostUsername = authUser?.username || 'Host',
         password = '',
-        problems = []
+        problems = [],
+        scheduledStartTime = null,
+        timezone = 'UTC'
       } = body;
 
       let selectedProblems = problems;
@@ -1145,7 +1149,7 @@ exports.handler = async (event) => {
       const now = Math.floor(Date.now() / 1000);
 
       // Auto-generate organized title if omitted
-      const nowObj = new Date();
+      const nowObj = scheduledStartTime ? new Date(Number(scheduledStartTime) * 1000) : new Date();
       const dateStr = nowObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       const timeStr = nowObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
       
@@ -1154,6 +1158,8 @@ exports.handler = async (event) => {
         if (seasonInfo) {
           const roundNum = (seasonInfo.contestIds?.length || 0) + 1;
           finalTitle = `${seasonInfo.title} — Round #${roundNum}`;
+        } else if (scheduledStartTime) {
+          finalTitle = `LeetCompete Scheduled • ${dateStr}, ${timeStr} (${timezone || 'UTC'})`;
         } else {
           finalTitle = `LeetCompete Match • ${dateStr}, ${timeStr} UTC`;
         }
@@ -1174,6 +1180,8 @@ exports.handler = async (event) => {
         status: 'WAITING',
         startTime: null,
         endTime: null,
+        scheduledStartTime: scheduledStartTime ? Number(scheduledStartTime) : null,
+        timezone: timezone || 'UTC',
         problems: selectedProblems.map(p => ({
           ...p,
           points: p.points || (p.difficulty === 'Easy' ? 100 : p.difficulty === 'Hard' ? 300 : 200)

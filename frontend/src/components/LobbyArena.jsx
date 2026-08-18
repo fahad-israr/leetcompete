@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, HelpCircle, Share2, Play, CheckCircle2, AlertCircle, Check, UserCheck, Layers, ArrowLeft, Lock, KeyRound, ShieldCheck, Edit3, User, Sparkles, Clock, Plus, X, RefreshCw } from 'lucide-react';
+import { Trophy, HelpCircle, Share2, Play, CheckCircle2, AlertCircle, Check, UserCheck, Layers, ArrowLeft, Lock, KeyRound, ShieldCheck, Edit3, User, Sparkles, Clock, Plus, X, RefreshCw, Calendar } from 'lucide-react';
 import Countdown from './Countdown';
 import ProblemCard from './ProblemCard';
 import Leaderboard from './Leaderboard';
@@ -558,10 +558,29 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
             </div>
           )}
 
+          {/* Scheduled Start Badge (If waiting and future scheduled) */}
+          {contest.status === 'WAITING' && contest.scheduledStartTime && (
+            <div
+              className="arena-chip"
+              style={{
+                background: 'rgba(96, 165, 250, 0.1)',
+                borderColor: 'rgba(96, 165, 250, 0.4)',
+                color: '#60a5fa',
+                fontSize: '0.8rem'
+              }}
+              title={`Scheduled for ${new Date(contest.scheduledStartTime * 1000).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} (${contest.timezone || 'UTC'})`}
+            >
+              <Calendar size={12} color="#60a5fa" />
+              <span>{new Date(contest.scheduledStartTime * 1000).toLocaleDateString([], { month: 'short', day: 'numeric' })}, {new Date(contest.scheduledStartTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({contest.timezone || 'UTC'})</span>
+            </div>
+          )}
+
           <Countdown
             status={contest.status}
             startTime={contest.startTime}
             endTime={contest.endTime}
+            scheduledStartTime={contest.scheduledStartTime}
+            timezone={contest.timezone || 'UTC'}
             problemsCount={contest.problems?.length || 0}
             onTimerEnd={loadContest}
           />
@@ -838,9 +857,15 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
                 }}>
                   <div style={{ fontSize: '2.8rem', marginBottom: '14px' }}>🔒</div>
                   <h3 style={{ fontSize: '1.2rem', fontWeight: '700', marginBottom: '8px' }}>Problems are Locked</h3>
-                  <p style={{ color: 'var(--text-muted)', maxWidth: '440px', margin: '0 auto 16px', lineHeight: '1.5', fontSize: '0.9rem' }}>
-                    Contest setup is in progress. The problems will unlock automatically and appear on this page as soon as the contest starts.
-                  </p>
+                  {contest.scheduledStartTime ? (
+                    <p style={{ color: 'var(--text-muted)', maxWidth: '480px', margin: '0 auto 16px', lineHeight: '1.5', fontSize: '0.9rem' }}>
+                      This match is scheduled for <strong>{new Date(contest.scheduledStartTime * 1000).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} ({contest.timezone || 'UTC'})</strong>. The problem set will automatically unlock and appear on this page as soon as the match starts!
+                    </p>
+                  ) : (
+                    <p style={{ color: 'var(--text-muted)', maxWidth: '440px', margin: '0 auto 16px', lineHeight: '1.5', fontSize: '0.9rem' }}>
+                      Contest setup is in progress. The problems will unlock automatically and appear on this page as soon as the contest starts.
+                    </p>
+                  )}
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 16px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-color)', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                     <Clock size={14} color="var(--accent-primary)" /> Waiting for contest organizer to start the match...
                   </div>
