@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, HelpCircle, Share2, Play, CheckCircle2, AlertCircle, Check, UserCheck, Layers, ArrowLeft, Lock, KeyRound, ShieldCheck, Edit3, User, Sparkles, Clock, Plus, X, RefreshCw, Calendar } from 'lucide-react';
+import { Trophy, HelpCircle, Share2, Play, CheckCircle2, AlertCircle, Check, UserCheck, Layers, ArrowLeft, Lock, KeyRound, ShieldCheck, Edit3, User, Sparkles, Clock, Plus, X, RefreshCw, Calendar, Loader2 } from 'lucide-react';
 import Countdown from './Countdown';
 import ProblemCard from './ProblemCard';
 import Leaderboard from './Leaderboard';

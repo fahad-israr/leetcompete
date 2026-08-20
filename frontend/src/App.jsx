@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './components/Home';
@@ -11,8 +11,48 @@ import AuthModal from './components/AuthModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import { api } from './services/api';
 
+// ── Hash-based Router ──
+// Routes: #/ (home), #/seasons, #/admin, #/lobby/CODE, ?lobby=CODE (legacy)
+function parseRoute() {
+  // 1. Support legacy ?lobby=CODE query param
+  const params = new URLSearchParams(window.location.search);
+  const legacyLobby = params.get('lobby');
+  if (legacyLobby) {
+    return { view: 'arena', contestCode: legacyLobby.toUpperCase() };
+  }
+
+  // 2. Parse hash route
+  const hash = window.location.hash || '#/';
+  if (hash.startsWith('#/lobby/')) {
+    const code = hash.replace('#/lobby/', '').toUpperCase();
+    return { view: 'arena', contestCode: code || null };
+  }
+  if (hash.startsWith('#/seasons')) return { view: 'seasons', contestCode: null };
+  if (hash.startsWith('#/admin')) return { view: 'admin', contestCode: null };
+  return { view: 'home', contestCode: null };
+}
+
+function setRoute(view, contestCode) {
+  // Clear legacy query param if present
+  if (window.location.search.includes('lobby')) {
+    const url = new URL(window.location);
+    url.searchParams.delete('lobby');
+    window.history.replaceState({}, '', url.pathname + url.hash);
+  }
+
+  if (view === 'arena' && contestCode) {
+    window.location.hash = `#/lobby/${contestCode}`;
+  } else if (view === 'seasons') {
+    window.location.hash = '#/seasons';
+  } else if (view === 'admin') {
+    window.location.hash = '#/admin';
+  } else {
+    window.location.hash = '#/';
+  }
+}
+
 export default function App() {
-  const [activeView, setActiveView] = useState('home'); // 'home' | 'seasons' | 'admin' | 'arena'
+  const [activeView, setActiveView] = useState('home');
   const [activeContestCode, setActiveContestCode] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   
@@ -21,8 +61,8 @@ export default function App() {
   const [isCreateSeasonOpen, setIsCreateSeasonOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
+  // Read initial route on mount
   useEffect(() => {
-    // 1. Check current logged-in user
     const user = api.getCurrentUser();
     if (user) {
       setCurrentUser(user);
@@ -31,47 +71,69 @@ export default function App() {
       });
     }
 
-    // 2. Check direct lobby link
+    const { view, contestCode } = parseRoute();
+    setActiveView(view);
+    setActiveContestCode(contestCode);
+
+    // Migrate legacy ?lobby= to hash route
     const params = new URLSearchParams(window.location.search);
-    const lobby = params.get('lobby');
-    if (lobby) {
-      setActiveContestCode(lobby.toUpperCase());
-      setActiveView('arena');
+    if (params.get('lobby')) {
+      const code = params.get('lobby').toUpperCase();
+      const url = new URL(window.location);
+      url.searchParams.delete('lobby');
+      url.hash = `#/lobby/${code}`;
+      window.history.replaceState({}, '', url.pathname + url.hash);
     }
   }, []);
 
-  const handleSelectContest = (code) => {
-    setActiveContestCode(code);
-    setActiveView('arena');
-    const url = new URL(window.location);
-    url.searchParams.set('lobby', code);
-    window.history.pushState({}, '', url);
-  };
+  // Listen for browser back/forward navigation
+  useEffect(() => {
+    const handleHashChange = () => {
+      const { view, contestCode } = parseRoute();
+      setActiveView(view);
+      setActiveContestCode(contestCode);
+    };
 
-  const handleBackToHome = () => {
-    setActiveView('home');
-    setActiveContestCode(null);
-    const url = new URL(window.location);
-    url.searchParams.delete('lobby');
-    window.history.pushState({}, '', url);
-  };
+    window.addEventListener('hashchange', handleHashChange);
+    window.addEventListener('popstate', handleHashChange);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('popstate', handleHashChange);
+    };
+  }, []);
 
-  const handleContestCreated = (contest) => {
+  const navigateTo = useCallback((view, contestCode = null) => {
+    setActiveView(view);
+    setActiveContestCode(contestCode);
+    setRoute(view, contestCode);
+  }, []);
+
+  const handleSelectContest = useCallback((code) => {
+    navigateTo('arena', code);
+  }, [navigateTo]);
+
+  const handleBackToHome = useCallback(() => {
+    navigateTo('home');
+  }, [navigateTo]);
+
+  const handleContestCreated = useCallback((contest) => {
     if (contest && contest.code) {
-      handleSelectContest(contest.code);
+      // Defer to next tick to avoid React render-during-render error (#310)
+      // when modal unmounts and arena view mounts simultaneously
+      setTimeout(() => handleSelectContest(contest.code), 0);
     } else {
       console.warn('Contest created with missing code:', contest);
-      setActiveView('home');
+      navigateTo('home');
     }
-  };
+  }, [handleSelectContest, navigateTo]);
 
   const handleOpenCreateContestForSeason = (seasonId) => {
     setCreateContestSeasonId(seasonId);
     setIsCreateContestOpen(true);
   };
 
-  const handleSeasonCreated = (season) => {
-    setActiveView('seasons');
+  const handleSeasonCreated = () => {
+    navigateTo('seasons');
   };
 
   const handleAuthSuccess = (user) => {
@@ -81,7 +143,7 @@ export default function App() {
   const handleLogout = () => {
     api.logout();
     setCurrentUser(null);
-    if (activeView === 'admin') setActiveView('home');
+    if (activeView === 'admin') navigateTo('home');
   };
 
   return (
@@ -89,14 +151,7 @@ export default function App() {
       {/* Navigation */}
       <Navbar
         activeView={activeView}
-        setActiveView={(view) => {
-          if (view !== 'arena') {
-            const url = new URL(window.location);
-            url.searchParams.delete('lobby');
-            window.history.pushState({}, '', url);
-          }
-          setActiveView(view);
-        }}
+        setActiveView={(view) => navigateTo(view)}
         onOpenCreateContest={() => {
           setCreateContestSeasonId(null);
           setIsCreateContestOpen(true);
@@ -118,7 +173,7 @@ export default function App() {
                 setIsCreateContestOpen(true);
               }}
               onOpenCreateSeason={() => setIsCreateSeasonOpen(true)}
-              onNavigateSeasons={() => setActiveView('seasons')}
+              onNavigateSeasons={() => navigateTo('seasons')}
               onOpenAuthModal={() => setIsAuthModalOpen(true)}
               currentUser={currentUser}
             />
@@ -156,7 +211,7 @@ export default function App() {
                   setIsCreateContestOpen(true);
                 }}
                 onOpenCreateSeason={() => setIsCreateSeasonOpen(true)}
-                onNavigateSeasons={() => setActiveView('seasons')}
+                onNavigateSeasons={() => navigateTo('seasons')}
                 onOpenAuthModal={() => setIsAuthModalOpen(true)}
                 currentUser={currentUser}
               />
