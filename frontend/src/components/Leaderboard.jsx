@@ -22,7 +22,7 @@ export default function Leaderboard({ leaderboard = [], problems = [] }) {
             <th style={{ textAlign: 'center' }}>Score</th>
             <th style={{ textAlign: 'center' }}>Penalty</th>
             {problems.map((p, idx) => (
-              <th key={p.titleSlug} style={{ textAlign: 'center', minWidth: '85px' }}>
+              <th key={p?.titleSlug || idx} style={{ textAlign: 'center', minWidth: '85px' }}>
                 Q{idx + 1}
               </th>
             ))}
@@ -30,7 +30,7 @@ export default function Leaderboard({ leaderboard = [], problems = [] }) {
         </thead>
         <tbody>
           {leaderboard.map((entry, idx) => (
-            <tr key={entry.username}>
+            <tr key={entry?.username || idx}>
               <td style={{ textAlign: 'center' }}>
                 <span style={{
                   fontFamily: 'var(--font-mono)',
@@ -56,29 +56,30 @@ export default function Leaderboard({ leaderboard = [], problems = [] }) {
                     fontWeight: '800',
                     fontSize: '0.85rem'
                   }}>
-                    {(entry.displayName || 'C').charAt(0).toUpperCase()}
+                    {(entry?.displayName || entry?.username || 'C').charAt(0).toUpperCase()}
                   </div>
                   <div>
                     <div style={{ fontWeight: '700', fontSize: '0.925rem', color: 'var(--text-main)' }}>
-                      {entry.displayName || 'Contestant'}
+                      {entry?.displayName || entry?.username || 'Contestant'}
                     </div>
                   </div>
                 </div>
               </td>
-              <td style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: '700', color: entry.solvedCount > 0 ? 'var(--color-easy)' : 'var(--text-dim)' }}>
-                {entry.solvedCount} / {problems.length}
+              <td style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: '700', color: (entry?.solvedCount || 0) > 0 ? 'var(--color-easy)' : 'var(--text-dim)' }}>
+                {entry?.solvedCount || 0} / {problems.length}
               </td>
               <td style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: '700', color: '#60a5fa' }}>
-                {entry.totalScore}
+                {entry?.totalScore || 0}
               </td>
               <td style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                {entry.totalPenalty}m
+                {entry?.totalPenalty || 0}m
               </td>
-              {problems.map((p) => {
-                const status = entry.problemStatus?.[p.titleSlug];
+              {problems.map((p, pIdx) => {
+                const slug = p?.titleSlug || p?.slug;
+                const status = slug ? entry?.problemStatus?.[slug] : null;
                 const isSolved = status?.solved;
                 return (
-                  <td key={p.titleSlug} style={{ textAlign: 'center' }}>
+                  <td key={slug || pIdx} style={{ textAlign: 'center' }}>
                     {isSolved ? (
                       <span style={{
                         display: 'inline-flex',
@@ -94,7 +95,7 @@ export default function Leaderboard({ leaderboard = [], problems = [] }) {
                         fontSize: '0.75rem'
                       }}>
                         <Check size={12} />
-                        +{status.penaltyMinutes}m
+                        +{status.penaltyMinutes || 0}m
                       </span>
                     ) : (
                       <span style={{ color: 'var(--text-dim)' }}>

@@ -8,6 +8,7 @@ import LobbyArena from './components/LobbyArena';
 import CreateContestModal from './components/CreateContestModal';
 import CreateSeasonModal from './components/CreateSeasonModal';
 import AuthModal from './components/AuthModal';
+import ErrorBoundary from './components/ErrorBoundary';
 import { api } from './services/api';
 
 export default function App() {
@@ -108,45 +109,8 @@ export default function App() {
 
       {/* Main View Area */}
       <main className="main-content">
-        {activeView === 'home' && (
-          <Home
-            onSelectContest={handleSelectContest}
-            onOpenCreateContest={() => {
-              setCreateContestSeasonId(null);
-              setIsCreateContestOpen(true);
-            }}
-            onOpenCreateSeason={() => setIsCreateSeasonOpen(true)}
-            onNavigateSeasons={() => setActiveView('seasons')}
-            onOpenAuthModal={() => setIsAuthModalOpen(true)}
-            currentUser={currentUser}
-          />
-        )}
-
-        {activeView === 'seasons' && (
-          <SeasonManager
-            onSelectContest={handleSelectContest}
-            onOpenCreateContestForSeason={handleOpenCreateContestForSeason}
-            onOpenCreateSeason={() => setIsCreateSeasonOpen(true)}
-            onOpenAuthModal={() => setIsAuthModalOpen(true)}
-            currentUser={currentUser}
-          />
-        )}
-
-        {activeView === 'admin' && (
-          <SuperAdminDashboard
-            currentUser={currentUser}
-            onNavigateContest={handleSelectContest}
-          />
-        )}
-
-        {activeView === 'arena' && (
-          activeContestCode ? (
-            <LobbyArena
-              contestCode={activeContestCode}
-              onBack={handleBackToHome}
-              currentUser={currentUser}
-            />
-          ) : (
+        <ErrorBoundary>
+          {activeView === 'home' && (
             <Home
               onSelectContest={handleSelectContest}
               onOpenCreateContest={() => {
@@ -158,8 +122,47 @@ export default function App() {
               onOpenAuthModal={() => setIsAuthModalOpen(true)}
               currentUser={currentUser}
             />
-          )
-        )}
+          )}
+
+          {activeView === 'seasons' && (
+            <SeasonManager
+              onSelectContest={handleSelectContest}
+              onOpenCreateContestForSeason={handleOpenCreateContestForSeason}
+              onOpenCreateSeason={() => setIsCreateSeasonOpen(true)}
+              onOpenAuthModal={() => setIsAuthModalOpen(true)}
+              currentUser={currentUser}
+            />
+          )}
+
+          {activeView === 'admin' && (
+            <SuperAdminDashboard
+              currentUser={currentUser}
+              onNavigateContest={handleSelectContest}
+            />
+          )}
+
+          {activeView === 'arena' && (
+            activeContestCode ? (
+              <LobbyArena
+                contestCode={activeContestCode}
+                onBack={handleBackToHome}
+                currentUser={currentUser}
+              />
+            ) : (
+              <Home
+                onSelectContest={handleSelectContest}
+                onOpenCreateContest={() => {
+                  setCreateContestSeasonId(null);
+                  setIsCreateContestOpen(true);
+                }}
+                onOpenCreateSeason={() => setIsCreateSeasonOpen(true)}
+                onNavigateSeasons={() => setActiveView('seasons')}
+                onOpenAuthModal={() => setIsAuthModalOpen(true)}
+                currentUser={currentUser}
+              />
+            )
+          )}
+        </ErrorBoundary>
       </main>
 
       {/* Global Footer */}

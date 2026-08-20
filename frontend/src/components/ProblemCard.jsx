@@ -50,7 +50,11 @@ export default function ProblemCard({
   };
 
   const isSolved = userSolved || false;
-  const leetcodeUrl = `https://leetcode.com/problems/${problem.titleSlug}/`;
+  const slug = problem?.titleSlug || problem?.slug || '';
+  const leetcodeUrl = slug ? `https://leetcode.com/problems/${slug}/` : 'https://leetcode.com/problemset/';
+  const problemTitle = problem?.title || `Problem ${index || 1}`;
+  const difficulty = problem?.difficulty || 'Medium';
+  const points = problem?.points || 100;
 
   return (
     <div className={`problem-card-item ${isSolved ? 'solved' : ''}`}>
@@ -64,14 +68,14 @@ export default function ProblemCard({
           <div className="problem-details">
             <div className="problem-header-row">
               <span className="problem-title-link">
-                Problem {index + 1}: {problem.title}
+                Problem {index + 1}: {problemTitle}
               </span>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <span className={`badge badge-${problem.difficulty?.toLowerCase() || 'medium'}`}>
-                  {problem.difficulty || 'Medium'}
+                <span className={`badge badge-${difficulty.toLowerCase()}`}>
+                  {difficulty}
                 </span>
                 <span style={{ fontSize: '0.775rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontWeight: '600' }}>
-                  {problem.points || 100} pts
+                  {points} pts
                 </span>
               </div>
             </div>

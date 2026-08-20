@@ -11,8 +11,13 @@ export default function Countdown({ status, startTime, endTime, scheduledStartTi
 
       if (status === 'WAITING') {
         if (scheduledStartTime) {
-          const diff = Math.max(0, scheduledStartTime - now);
-          setScheduledDiff(diff);
+          const schedNum = Number(scheduledStartTime);
+          if (!isNaN(schedNum) && schedNum > 0) {
+            const diff = Math.max(0, schedNum - now);
+            setScheduledDiff(diff);
+          } else {
+            setScheduledDiff(0);
+          }
         } else {
           setScheduledDiff(0);
         }
@@ -27,10 +32,13 @@ export default function Countdown({ status, startTime, endTime, scheduledStartTi
       }
 
       if (status === 'IN_PROGRESS' && problemsCount > 0 && endTime) {
-        const remaining = Math.max(0, endTime - now);
-        setTimeLeft(remaining);
-        if (remaining === 0 && onTimerEnd) {
-          onTimerEnd();
+        const endNum = Number(endTime);
+        if (!isNaN(endNum) && endNum > 0) {
+          const remaining = Math.max(0, endNum - now);
+          setTimeLeft(remaining);
+          if (remaining === 0 && onTimerEnd) {
+            onTimerEnd();
+          }
         }
       }
     }
@@ -40,7 +48,8 @@ export default function Countdown({ status, startTime, endTime, scheduledStartTi
     return () => clearInterval(interval);
   }, [status, startTime, endTime, scheduledStartTime, problemsCount, onTimerEnd]);
 
-  const pad = (n) => String(n).padStart(2, '0');
+  const safeNum = (n) => (isNaN(Number(n)) ? 0 : Math.floor(Number(n)));
+  const pad = (n) => String(safeNum(n)).padStart(2, '0');
 
   if (status === 'WAITING') {
     if (scheduledStartTime && scheduledDiff > 0) {

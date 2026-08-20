@@ -71,10 +71,14 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     const interval = setInterval(async () => {
       try {
         const updated = await api.getContest(contestCode);
-        setContest(updated);
+        if (updated && updated.id) {
+          setContest(updated);
+        }
         try {
           const msgs = await api.getMessages(contest.id);
-          setMessages(msgs || []);
+          if (Array.isArray(msgs)) {
+            setMessages(msgs);
+          }
         } catch (e) {}
       } catch (e) {}
     }, 6000);
@@ -87,6 +91,9 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     setError('');
     try {
       const data = await api.getContest(contestCode);
+      if (!data || !data.id) {
+        throw new Error(`Contest lobby "${contestCode}" not found.`);
+      }
       setContest(data);
       
       const isCreator = (currentUser && (
@@ -100,7 +107,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
       
       try {
         const msgs = await api.getMessages(data.id);
-        setMessages(msgs || []);
+        setMessages(Array.isArray(msgs) ? msgs : []);
       } catch (e) {
         setMessages([]);
       }
@@ -120,7 +127,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     if (!usernameInput.trim()) {
       return setEntryError('Please enter your LeetCode handle for submission verification.');
     }
-    if (contest.isPrivate && !isPasswordUnlocked && !passwordInput.trim()) {
+    if (contest?.isPrivate && !isPasswordUnlocked && !passwordInput.trim()) {
       return setEntryError('Contest password is required for this private lobby.');
     }
 
@@ -214,7 +221,9 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     try {
       const sender = displayName || username || 'Guest';
       const msg = await api.sendMessage(contest.id, sender, text);
-      setMessages(prev => [...prev, msg]);
+      if (msg) {
+        setMessages(prev => [...prev, msg]);
+      }
     } catch (err) {
       console.error('Send message error:', err);
     }
@@ -223,7 +232,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
   const handleCopyLobbyLink = () => {
     const url = `${window.location.origin}${window.location.pathname}?lobby=${contest?.code || contestCode}`;
     const fullText = (contest?.isPrivate && contest?.password && contest.password !== '••••••••') 
-      ? `Join LeetCode Contest: ${contest.title}\nLink: ${url}\nPassword: ${contest.password}`
+      ? `Join LeetCode Contest: ${contest?.title || 'Contest'}\nLink: ${url}\nPassword: ${contest.password}`
       : url;
     
     navigator.clipboard.writeText(fullText);
@@ -240,8 +249,9 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
 
   if (isLoading) {
     return (
-      <div style={{ textAlign: 'center', padding: '100px 20px', color: 'var(--text-dim)' }}>
-        Loading arena...
+      <div style={{ textAlign: 'center', padding: '100px 20px', color: 'var(--text-muted)' }}>
+        <Loader2 size={32} className="spin-animation" color="var(--accent-primary)" style={{ marginBottom: '12px' }} />
+        <div style={{ fontSize: '0.95rem', fontWeight: '600' }}>Loading contest arena...</div>
       </div>
     );
   }
@@ -252,20 +262,25 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
         <AlertCircle size={40} color="#fb7185" style={{ marginBottom: '16px' }} />
         <h2 style={{ fontSize: '1.4rem', fontWeight: '700', marginBottom: '8px' }}>Lobby Not Found</h2>
         <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>{error || `No active lobby found with code "${contestCode}".`}</p>
-        <button onClick={onBack} className="btn btn-primary">
-          <ArrowLeft size={16} /> Return to Lobbies
-        </button>
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+          <button onClick={loadContest} className="btn btn-secondary">
+            <RefreshCw size={15} /> Try Again
+          </button>
+          <button onClick={onBack} className="btn btn-primary">
+            <ArrowLeft size={16} /> Return to Lobbies
+          </button>
+        </div>
       </div>
     );
   }
 
   const isOrganizer = (currentUser && (
-    (currentUser.username || '').toLowerCase() === (contest.ownerUsername || '').toLowerCase() ||
-    (currentUser.username || '').toLowerCase() === (contest.hostUsername || '').toLowerCase()
-  )) || !!contest.isOrganizer;
+    (currentUser.username || '').toLowerCase() === (contest?.ownerUsername || '').toLowerCase() ||
+    (currentUser.username || '').toLowerCase() === (contest?.hostUsername || '').toLowerCase()
+  )) || !!contest?.isOrganizer;
 
   // ENTRY GATE: If not yet joined, or private lobby locked
-  const requiresGate = (!hasEnteredArena && !isOrganizer) || (contest.isPrivate && !isPasswordUnlocked && !isOrganizer);
+  const requiresGate = (!hasEnteredArena && !isOrganizer) || (contest?.isPrivate && !isPasswordUnlocked && !isOrganizer);
 
   if (requiresGate) {
     return (
