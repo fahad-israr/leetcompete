@@ -1523,23 +1523,37 @@ exports.handler = async (event) => {
         const entryUserLower = (entry.rawUsername || entry.username || '').toLowerCase();
         const isSelf = !!(requesterUsername && (entryUserLower === requesterUsername));
 
+        const cleanSolves = (entry.solves || []).map(s => ({
+          problemSlug: s.problemSlug,
+          problemTitle: s.problemTitle,
+          penaltyMinutes: s.penaltyMinutes,
+          points: s.points,
+          verifiedAt: s.verifiedAt
+        }));
+
         if (isOrganizer || isSelf) {
-          return {
+          const resEntry = {
             ...entry,
+            solves: cleanSolves,
             username: entry.rawUsername || entry.username,
             displayName: entry.displayName || entry.rawUsername || entry.username,
             isSelf: !!isSelf
           };
+          delete resEntry.rawUsername;
+          return resEntry;
         }
 
         // For all other participants, mask LeetCode handle with their public displayName
         const publicName = entry.displayName || 'Contestant';
-        return {
+        const resEntry = {
           ...entry,
+          solves: cleanSolves,
           username: publicName,
           displayName: publicName,
           isSelf: false
         };
+        delete resEntry.rawUsername;
+        return resEntry;
       });
 
       // Build privacy-sanitized participants list
@@ -1571,9 +1585,15 @@ exports.handler = async (event) => {
 
         const publicName = userMap[sub.username]?.displayName || 'Contestant';
         return {
-          ...sub,
-          username: publicName,
+          contestId: sub.contestId,
           id: `sub_${sub.contestId}_${sub.problemSlug}`,
+          problemSlug: sub.problemSlug,
+          problemTitle: sub.problemTitle,
+          points: sub.points,
+          penaltyMinutes: sub.penaltyMinutes,
+          verifiedAt: sub.verifiedAt,
+          username: publicName,
+          displayName: publicName,
           isSelf: false
         };
       });
