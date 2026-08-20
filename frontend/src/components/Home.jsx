@@ -96,7 +96,7 @@ export default function Home({
 
           {/* Quick Join Bar + Actions */}
           <div className="quick-join-bar" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <form onSubmit={handleJoinSubmit} style={{ display: 'flex', gap: '8px', flex: '1 1 auto', minWidth: '280px' }}>
+            <form onSubmit={handleJoinSubmit} style={{ display: 'flex', gap: '8px', flex: '1 1 240px', minWidth: 0, width: '100%' }}>
               <input
                 type="text"
                 placeholder="Lobby Code (e.g. 55OH7)"
@@ -113,11 +113,12 @@ export default function Home({
                   fontSize: '0.95rem',
                   letterSpacing: '0.08em',
                   flex: 1,
+                  minWidth: 0,
                   outline: 'none',
                   minHeight: '42px'
                 }}
               />
-              <button type="submit" disabled={!joinCode.trim()} className="btn btn-primary" style={{ padding: '10px 16px' }}>
+              <button type="submit" disabled={!joinCode.trim()} className="btn btn-primary" style={{ padding: '10px 16px', flexShrink: 0 }}>
                 Join <ArrowRight size={15} />
               </button>
             </form>
@@ -134,7 +135,7 @@ export default function Home({
       </div>
 
       {/* Feature Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: '16px', marginBottom: '32px' }}>
         <div className="card">
           <div style={{
             background: 'var(--accent-primary-light)',

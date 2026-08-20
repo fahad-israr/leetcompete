@@ -116,7 +116,18 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
     }
   }, [scheduleMode, scheduledDateTime]);
 
+  // Timezone options (prepend current if unique)
+  const timezoneOptions = useMemo(() => {
+    const list = [...POPULAR_TIMEZONES];
+    if (timezone && !list.some(tz => tz.value === timezone)) {
+      list.unshift({ value: timezone, label: `${timezone} (Local Device Timezone)` });
+    }
+    return list;
+  }, [timezone]);
+
   if (!isOpen) return null;
+
+  const selectedSeason = seasons.find(s => s.id === seasonId);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -201,17 +212,6 @@ export default function CreateContestModal({ isOpen, onClose, onContestCreated, 
       setIsSubmitting(false);
     }
   };
-
-  const selectedSeason = seasons.find(s => s.id === seasonId);
-
-  // Timezone options (prepend current if unique)
-  const timezoneOptions = useMemo(() => {
-    const list = [...POPULAR_TIMEZONES];
-    if (timezone && !list.some(tz => tz.value === timezone)) {
-      list.unshift({ value: timezone, label: `${timezone} (Local Device Timezone)` });
-    }
-    return list;
-  }, [timezone]);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
