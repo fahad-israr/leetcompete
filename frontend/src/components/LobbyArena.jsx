@@ -96,8 +96,10 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     if (!contest || contest.status !== 'WAITING' || !contest.scheduledStartTime) return;
 
     const triggerAutoStart = async () => {
-      const now = Math.floor(Date.now() / 1000);
-      if (now >= contest.scheduledStartTime) {
+      const nowMs = Date.now();
+      const schedMs = Number(contest.scheduledStartTime) * 1000;
+
+      if (nowMs >= (schedMs - 300)) {
         const isCreator = (currentUser && (
           (currentUser.username || '').toLowerCase() === (contest.ownerUsername || '').toLowerCase() ||
           (currentUser.username || '').toLowerCase() === (contest.hostUsername || '').toLowerCase()
@@ -106,14 +108,17 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
         if (isCreator) {
           try {
             await api.startContest(contest.id || contestCode);
-          } catch (e) {}
+          } catch (e) {
+            console.error('Auto-start request error:', e);
+          }
         }
-        loadContest();
+        await loadContest();
       }
     };
 
-    const now = Math.floor(Date.now() / 1000);
-    const delayMs = Math.max(0, (contest.scheduledStartTime - now) * 1000);
+    const nowMs = Date.now();
+    const schedMs = Number(contest.scheduledStartTime) * 1000;
+    const delayMs = Math.max(0, schedMs - nowMs + 250);
 
     const timer = setTimeout(triggerAutoStart, delayMs);
     return () => clearTimeout(timer);
