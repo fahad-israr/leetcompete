@@ -2,7 +2,7 @@ import React from 'react';
 import { Heart, ExternalLink } from 'lucide-react';
 
 // Official GitHub Invertocat Vector
-function OfficialGitHubIcon({ size = 18 }) {
+function OfficialGitHubIcon({ size = 15 }) {
   return (
     <svg
       width={size}
@@ -37,56 +37,56 @@ export default function Footer() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '14px',
+        gap: '6px',
         flexWrap: 'wrap'
       }}>
-        {/* Attribution: </> with ❤️ by Fahad Israr */}
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontFamily: 'var(--font-mono)',
-              fontWeight: '800',
-              fontSize: '0.8rem',
-              background: 'var(--accent-primary-light)',
-              color: 'var(--accent-primary)',
-              padding: '2px 6px',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid rgba(234, 88, 12, 0.25)',
-              letterSpacing: '-0.02em'
-            }}
-            title="Code"
-          >
-            &lt;/&gt;
-          </span>
-          <span>with</span>
-          <Heart size={14} color="#ef4444" fill="#ef4444" style={{ display: 'inline', verticalAlign: 'middle' }} />
-          <span>by</span>
-          <a
-            href="https://www.linkedin.com/in/fahad00cms"
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              color: 'var(--accent-primary)',
-              fontWeight: '700',
-              textDecoration: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              transition: 'color 0.2s ease'
-            }}
-          >
-            <span>Fahad Israr</span>
-            <ExternalLink size={11} />
-          </a>
-        </div>
+        {/* Code Badge: </> */}
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: 'var(--font-mono)',
+            fontWeight: '800',
+            fontSize: '0.8rem',
+            background: 'var(--accent-primary-light)',
+            color: 'var(--accent-primary)',
+            padding: '2px 6px',
+            borderRadius: 'var(--radius-sm)',
+            border: '1px solid rgba(234, 88, 12, 0.25)',
+            letterSpacing: '-0.02em',
+            marginRight: '2px'
+          }}
+          title="Code"
+        >
+          &lt;/&gt;
+        </span>
 
-        {/* Subtle separator */}
-        <span style={{ color: 'var(--border-color)', display: 'inline-block' }}>•</span>
+        <span>with</span>
+        <Heart size={14} color="#ef4444" fill="#ef4444" style={{ display: 'inline', verticalAlign: 'middle' }} />
+        <span>by</span>
 
-        {/* Official GitHub Icon Badge with High-Contrast White Background */}
+        {/* Fahad Israr Link */}
+        <a
+          href="https://www.linkedin.com/in/fahad00cms"
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            color: 'var(--accent-primary)',
+            fontWeight: '700',
+            textDecoration: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '3px',
+            transition: 'color 0.2s ease',
+            marginRight: '4px'
+          }}
+        >
+          <span>Fahad Israr</span>
+          <ExternalLink size={11} />
+        </a>
+
+        {/* Official GitHub Icon Badge directly beside */}
         <a
           href="https://github.com/fahad-israr/leetcompete"
           target="_blank"
@@ -97,27 +97,27 @@ export default function Footer() {
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            width: '28px',
-            height: '28px',
+            width: '24px',
+            height: '24px',
             borderRadius: '50%',
             background: '#ffffff',
             color: '#181717',
             border: '1px solid rgba(0, 0, 0, 0.15)',
-            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.15)',
+            boxShadow: '0 1px 4px rgba(0, 0, 0, 0.15)',
             textDecoration: 'none',
             transition: 'transform 0.2s ease, box-shadow 0.2s ease',
             flexShrink: 0
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'scale(1.1)';
-            e.currentTarget.style.boxShadow = '0 0 12px var(--accent-orange-glow)';
+            e.currentTarget.style.transform = 'scale(1.15)';
+            e.currentTarget.style.boxShadow = '0 0 10px var(--accent-orange-glow)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = 'scale(1)';
-            e.currentTarget.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.15)';
+            e.currentTarget.style.boxShadow = '0 1px 4px rgba(0, 0, 0, 0.15)';
           }}
         >
-          <OfficialGitHubIcon size={17} />
+          <OfficialGitHubIcon size={14} />
         </a>
       </div>
     </footer>
