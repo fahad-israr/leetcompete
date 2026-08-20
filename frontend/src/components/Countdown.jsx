@@ -15,6 +15,9 @@ export default function Countdown({ status, startTime, endTime, scheduledStartTi
           if (!isNaN(schedNum) && schedNum > 0) {
             const diff = Math.max(0, schedNum - now);
             setScheduledDiff(diff);
+            if (diff === 0 && onTimerEnd) {
+              onTimerEnd();
+            }
           } else {
             setScheduledDiff(0);
           }
@@ -86,15 +89,18 @@ export default function Countdown({ status, startTime, endTime, scheduledStartTi
         <div
           className="timer-display arena-chip"
           style={{
-            background: 'rgba(245, 158, 11, 0.1)',
-            borderColor: 'rgba(245, 158, 11, 0.4)',
-            color: '#f59e0b',
+            background: 'rgba(16, 185, 129, 0.12)',
+            borderColor: 'rgba(16, 185, 129, 0.4)',
+            color: 'var(--color-easy)',
             fontSize: '0.85rem',
-            fontWeight: '700'
+            fontWeight: '700',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px'
           }}
         >
-          <Clock size={13} color="#f59e0b" />
-          Starting Soon (Waiting for Host)
+          <Loader2 size={13} className="spin-animation" color="var(--color-easy)" />
+          Starting Match...
         </div>
       );
     }

@@ -296,6 +296,7 @@ function getClientIdentifier(event, body) {
 async function resolveContest(codeOrId) {
   if (!codeOrId) return null;
   const clean = codeOrId.trim();
+  let contest = null;
   if (clean.length === 5) {
     const qRes = await docClient.send(new QueryCommand({
       TableName: CONTESTS_TABLE,
@@ -303,13 +304,53 @@ async function resolveContest(codeOrId) {
       KeyConditionExpression: 'code = :code',
       ExpressionAttributeValues: { ':code': clean.toUpperCase() }
     }));
-    if (qRes.Items && qRes.Items[0]) return qRes.Items[0];
+    if (qRes.Items && qRes.Items[0]) contest = qRes.Items[0];
   }
-  const getRes = await docClient.send(new GetCommand({
-    TableName: CONTESTS_TABLE,
-    Key: { id: clean }
-  }));
-  return getRes.Item || null;
+  if (!contest) {
+    const getRes = await docClient.send(new GetCommand({
+      TableName: CONTESTS_TABLE,
+      Key: { id: clean }
+    }));
+    contest = getRes.Item || null;
+  }
+
+  if (!contest) return null;
+
+  const now = Math.floor(Date.now() / 1000);
+
+  // Auto-start prescheduled contests when scheduledStartTime is reached
+  if (contest.status === 'WAITING' && contest.scheduledStartTime && now >= contest.scheduledStartTime) {
+    const startTime = contest.scheduledStartTime;
+    const endTime = contest.scheduledStartTime + ((contest.durationMinutes || 60) * 60);
+    const newStatus = now >= endTime ? 'FINISHED' : 'IN_PROGRESS';
+
+    contest.status = newStatus;
+    contest.startTime = startTime;
+    contest.endTime = endTime;
+
+    docClient.send(new UpdateCommand({
+      TableName: CONTESTS_TABLE,
+      Key: { id: contest.id },
+      UpdateExpression: 'SET #st = :status, startTime = :start, endTime = :end',
+      ExpressionAttributeNames: { '#st': 'status' },
+      ExpressionAttributeValues: {
+        ':status': newStatus,
+        ':start': startTime,
+        ':end': endTime
+      }
+    })).catch(() => {});
+  } else if (contest.status === 'IN_PROGRESS' && contest.endTime && now >= contest.endTime) {
+    contest.status = 'FINISHED';
+    docClient.send(new UpdateCommand({
+      TableName: CONTESTS_TABLE,
+      Key: { id: contest.id },
+      UpdateExpression: 'SET #st = :fin',
+      ExpressionAttributeNames: { '#st': 'status' },
+      ExpressionAttributeValues: { ':fin': 'FINISHED' }
+    })).catch(() => {});
+  }
+
+  return contest;
 }
 
 /**
@@ -1032,11 +1073,33 @@ exports.handler = async (event) => {
 
       for (const c of allItems) {
         let currentStatus = c.status || 'WAITING';
+        let currentStartTime = c.startTime;
+        let currentEndTime = c.endTime;
 
-        // Auto-transition to FINISHED if contest time has expired
-        if (currentStatus === 'IN_PROGRESS' && c.endTime && now >= c.endTime) {
+        // Auto-start prescheduled contests if scheduled start time has arrived
+        if (currentStatus === 'WAITING' && c.scheduledStartTime && now >= c.scheduledStartTime) {
+          currentStatus = 'IN_PROGRESS';
+          currentStartTime = c.scheduledStartTime;
+          currentEndTime = c.scheduledStartTime + ((c.durationMinutes || 60) * 60);
+
+          if (now >= currentEndTime) {
+            currentStatus = 'FINISHED';
+          }
+
+          docClient.send(new UpdateCommand({
+            TableName: CONTESTS_TABLE,
+            Key: { id: c.id },
+            UpdateExpression: 'SET #st = :status, startTime = :start, endTime = :end',
+            ExpressionAttributeNames: { '#st': 'status' },
+            ExpressionAttributeValues: {
+              ':status': currentStatus,
+              ':start': currentStartTime,
+              ':end': currentEndTime
+            }
+          })).catch(() => {});
+        } else if (currentStatus === 'IN_PROGRESS' && currentEndTime && now >= currentEndTime) {
+          // Auto-transition to FINISHED if contest time has expired
           currentStatus = 'FINISHED';
-          // Async update in DynamoDB
           docClient.send(new UpdateCommand({
             TableName: CONTESTS_TABLE,
             Key: { id: c.id },

@@ -68,6 +68,11 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
   useEffect(() => {
     if (!contest?.id) return;
 
+    // Fast poll (2s) if waiting for prescheduled start time
+    const now = Math.floor(Date.now() / 1000);
+    const isWaitingScheduled = contest.status === 'WAITING' && contest.scheduledStartTime && now >= (contest.scheduledStartTime - 5);
+    const pollInterval = isWaitingScheduled ? 2000 : 6000;
+
     const interval = setInterval(async () => {
       try {
         const updated = await api.getContest(contestCode);
@@ -81,10 +86,38 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
           }
         } catch (e) {}
       } catch (e) {}
-    }, 6000);
+    }, pollInterval);
 
     return () => clearInterval(interval);
-  }, [contest?.id, contestCode]);
+  }, [contest?.id, contest?.status, contest?.scheduledStartTime, contestCode]);
+
+  // Auto-start prescheduled contests when scheduled start time arrives
+  useEffect(() => {
+    if (!contest || contest.status !== 'WAITING' || !contest.scheduledStartTime) return;
+
+    const triggerAutoStart = async () => {
+      const now = Math.floor(Date.now() / 1000);
+      if (now >= contest.scheduledStartTime) {
+        const isCreator = (currentUser && (
+          (currentUser.username || '').toLowerCase() === (contest.ownerUsername || '').toLowerCase() ||
+          (currentUser.username || '').toLowerCase() === (contest.hostUsername || '').toLowerCase()
+        )) || !!contest.isOrganizer;
+
+        if (isCreator) {
+          try {
+            await api.startContest(contest.id || contestCode);
+          } catch (e) {}
+        }
+        loadContest();
+      }
+    };
+
+    const now = Math.floor(Date.now() / 1000);
+    const delayMs = Math.max(0, (contest.scheduledStartTime - now) * 1000);
+
+    const timer = setTimeout(triggerAutoStart, delayMs);
+    return () => clearTimeout(timer);
+  }, [contest?.status, contest?.scheduledStartTime, contestCode, currentUser]);
 
   const loadContest = async () => {
     setIsLoading(true);
@@ -116,6 +149,22 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleTimerEnd = async () => {
+    if (contest?.status === 'WAITING' && contest?.scheduledStartTime) {
+      const isCreator = (currentUser && (
+        (currentUser.username || '').toLowerCase() === (contest.ownerUsername || '').toLowerCase() ||
+        (currentUser.username || '').toLowerCase() === (contest.hostUsername || '').toLowerCase()
+      )) || !!contest.isOrganizer;
+
+      if (isCreator) {
+        try {
+          await api.startContest(contest.id || contestCode);
+        } catch (e) {}
+      }
+    }
+    loadContest();
   };
 
   // Unified Entry Form (Handles Name/Alias, Private LeetCode Handle, and Contest Password)
@@ -597,7 +646,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
             scheduledStartTime={contest.scheduledStartTime}
             timezone={contest.timezone || 'UTC'}
             problemsCount={contest.problems?.length || 0}
-            onTimerEnd={loadContest}
+            onTimerEnd={handleTimerEnd}
           />
 
           {/* Start Contest (Organizer Only) */}
@@ -882,7 +931,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
                     </p>
                   )}
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 16px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-color)', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    <Clock size={14} color="var(--accent-primary)" /> Waiting for contest organizer to start the match...
+                    <Clock size={14} color="var(--accent-primary)" /> {contest.scheduledStartTime ? 'Contest will auto-start at scheduled time...' : 'Waiting for contest organizer to start the match...'}
                   </div>
                 </div>
               ) : (

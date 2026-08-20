@@ -9,6 +9,7 @@
     "build:client": "npm --prefix client run build"
   },
   "dependencies": {
+    "@aws-sdk/client-lambda": "^3.1114.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "ws": "^8.18.0"
