@@ -1,7 +1,7 @@
 import React from 'react';
 import { Heart, ExternalLink } from 'lucide-react';
 
-function GitHubIcon({ size = 15, color = 'currentColor' }) {
+function GitHubIcon({ size = 16, color = 'currentColor' }) {
   return (
     <svg
       width={size}
@@ -36,7 +36,7 @@ export default function Footer() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '16px',
+        gap: '14px',
         flexWrap: 'wrap'
       }}>
         {/* Attribution: </> with ❤️ by Fahad Israr */}
@@ -85,29 +85,35 @@ export default function Footer() {
         {/* Subtle separator */}
         <span style={{ color: 'var(--border-color)', display: 'inline-block' }}>•</span>
 
-        {/* GitHub Repo Source Link */}
+        {/* GitHub Repo Icon Link */}
         <a
           href="https://github.com/fahad-israr/leetcompete"
           target="_blank"
           rel="noreferrer"
+          aria-label="GitHub Repository"
+          title="GitHub Repository (LeetCompete)"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '6px',
+            justifyContent: 'center',
             color: 'var(--text-main)',
             textDecoration: 'none',
-            fontWeight: '600',
-            fontSize: '0.825rem',
-            padding: '4px 10px',
+            padding: '6px',
             borderRadius: 'var(--radius-sm)',
             background: 'var(--bg-input)',
             border: '1px solid var(--border-color)',
             transition: 'all 0.2s ease'
           }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = 'var(--accent-primary)';
+            e.currentTarget.style.color = 'var(--accent-primary)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'var(--border-color)';
+            e.currentTarget.style.color = 'var(--text-main)';
+          }}
         >
-          <GitHubIcon size={14} color="var(--text-main)" />
-          <span>Source Code</span>
-          <ExternalLink size={11} color="var(--text-dim)" />
+          <GitHubIcon size={16} color="currentColor" />
         </a>
       </div>
     </footer>
