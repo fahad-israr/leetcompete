@@ -56,25 +56,33 @@ export default function ProblemCard({
   const difficulty = problem?.difficulty || 'Medium';
   const points = problem?.points || 100;
 
+  const displayNum = typeof index === 'number' ? index : 1;
+
   return (
     <div className={`problem-card-item ${isSolved ? 'solved' : ''}`}>
       <div className="problem-card-content">
         {/* Left Info */}
         <div className="problem-card-info">
           <div className={`problem-number-badge ${isSolved ? 'solved' : ''}`}>
-            {isSolved ? '✓' : index + 1}
+            {isSolved ? '✓' : displayNum}
           </div>
 
           <div className="problem-details">
             <div className="problem-header-row">
               <span className="problem-title-link">
-                Problem {index + 1}: {problemTitle}
+                Problem {displayNum}: {problemTitle}
               </span>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <span className={`badge badge-${difficulty.toLowerCase()}`}>
-                  {difficulty}
-                </span>
-                <span style={{ fontSize: '0.775rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontWeight: '600' }}>
+                <span style={{
+                  fontSize: '0.775rem',
+                  color: 'var(--accent-primary)',
+                  background: 'var(--accent-primary-light)',
+                  border: '1px solid rgba(234, 88, 12, 0.25)',
+                  padding: '2px 8px',
+                  borderRadius: 'var(--radius-sm)',
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: '700'
+                }}>
                   {points} pts
                 </span>
               </div>
