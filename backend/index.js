@@ -257,22 +257,33 @@ function getAuthenticatedUser(event) {
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
     const verified = verifyUserToken(token);
-    if (verified) return verified;
+    if (verified) {
+      return {
+        ...verified,
+        isTokenVerified: true
+      };
+    }
   }
+  // Fallback for non-privileged client display ONLY (cannot act as superadmin)
   const usernameHeader = headers['x-username'] || headers['X-Username'];
   if (usernameHeader) {
     const u = usernameHeader.trim().toLowerCase();
-    const isSuper = u === 'fahad00cms' || u === 'fahad00cms@gmail.com';
-    return { username: u, displayName: usernameHeader.trim(), role: isSuper ? 'superadmin' : 'organizer' };
+    return {
+      username: u,
+      displayName: usernameHeader.trim(),
+      role: 'organizer',
+      isTokenVerified: false
+    };
   }
   return null;
 }
 
 function isSuperAdmin(authUser) {
-  if (!authUser) return false;
+  if (!authUser || !authUser.isTokenVerified) return false;
   const username = (authUser.username || '').toLowerCase();
   const email = (authUser.email || '').toLowerCase();
-  return authUser.role === 'superadmin' || username === 'fahad00cms' || email === 'fahad00cms@gmail.com';
+  const role = (authUser.role || '').toLowerCase();
+  return (role === 'superadmin' || username === 'fahad00cms' || email === 'fahad00cms@gmail.com');
 }
 
 function isUserOrganizer(authUser, contest) {
@@ -1804,12 +1815,20 @@ exports.handler = async (event) => {
       return jsonResponse(200, { success: true, message: newMsg });
     }
 
+    // =========================================================================
+    // 🛡️ SUPER ADMIN ROUTE GUARD (Enforces Valid Superadmin JWT Bearer Token)
+    // =========================================================================
+    if (path.startsWith('/api/admin')) {
+      if (!isSuperAdmin(authUser)) {
+        return jsonResponse(403, {
+          success: false,
+          error: 'Forbidden. Valid superadmin authorization token required.'
+        });
+      }
+    }
+
     // Super Admin Analytics Dashboard
     if (path === '/api/admin/analytics' && httpMethod === 'GET') {
-      if (!isSuperAdmin(authUser)) {
-        return jsonResponse(403, { success: false, error: 'Forbidden. Superadmin privileges required.' });
-      }
-
       const [usersRes, seasonsRes, contestsRes, subRes, msgRes] = await Promise.all([
         docClient.send(new ScanCommand({ TableName: USERS_TABLE })),
         docClient.send(new ScanCommand({ TableName: SEASONS_TABLE })),
