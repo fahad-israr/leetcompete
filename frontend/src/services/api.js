@@ -12,7 +12,7 @@ function getClientMachineId() {
 function getAuthHeaders() {
   const headers = { 'Content-Type': 'application/json' };
   
-  const token = localStorage.getItem('leetcompete_auth_token');
+  const token = localStorage.getItem('leetcompete_auth_token') || localStorage.getItem('leetcompete_token');
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -25,6 +25,13 @@ function getAuthHeaders() {
         headers['x-username'] = user.username;
       }
     } catch (e) {}
+  }
+
+  if (!headers['x-username']) {
+    const savedLC = localStorage.getItem('contestant_leetcode_username');
+    if (savedLC) {
+      headers['x-username'] = savedLC.trim();
+    }
   }
 
   return headers;

@@ -520,6 +520,7 @@ exports.handler = async (event) => {
     }
   }
 
+  const headers = event.headers || {};
   const queryParams = event.queryStringParameters || {};
   const authUser = getAuthenticatedUser(event);
 
@@ -1459,6 +1460,7 @@ exports.handler = async (event) => {
         }
 
         userMap[p.username] = {
+          rawUsername: p.username,
           username: p.username,
           displayName: p.displayName || p.username,
           totalScore: 0,
@@ -1472,6 +1474,7 @@ exports.handler = async (event) => {
       submissions.forEach(sub => {
         if (!userMap[sub.username]) {
           userMap[sub.username] = {
+            rawUsername: sub.username,
             username: sub.username,
             displayName: sub.username,
             totalScore: 0,
@@ -1506,6 +1509,75 @@ exports.handler = async (event) => {
 
       const isOrganizer = isUserOrganizer(authUser, contest);
 
+      // Determine viewer identity to safely provide self-highlighting
+      const requesterUsername = (
+        authUser?.username ||
+        headers['x-username'] ||
+        headers['X-Username'] ||
+        queryParams.viewer ||
+        ''
+      ).toLowerCase().trim();
+
+      // Build privacy-sanitized leaderboard (hides other contestants' LeetCode handles)
+      const sanitizedLeaderboard = leaderboard.map(entry => {
+        const entryUserLower = (entry.rawUsername || entry.username || '').toLowerCase();
+        const isSelf = !!(requesterUsername && (entryUserLower === requesterUsername));
+
+        if (isOrganizer || isSelf) {
+          return {
+            ...entry,
+            username: entry.rawUsername || entry.username,
+            displayName: entry.displayName || entry.rawUsername || entry.username,
+            isSelf: !!isSelf
+          };
+        }
+
+        // For all other participants, mask LeetCode handle with their public displayName
+        const publicName = entry.displayName || 'Contestant';
+        return {
+          ...entry,
+          username: publicName,
+          displayName: publicName,
+          isSelf: false
+        };
+      });
+
+      // Build privacy-sanitized participants list
+      const sanitizedParticipants = (contest.participants || []).map(p => {
+        const pLower = (p.username || '').toLowerCase();
+        const isSelf = !!(requesterUsername && (pLower === requesterUsername));
+
+        if (isOrganizer || isSelf) {
+          return { ...p, isSelf: !!isSelf };
+        }
+
+        const publicName = p.displayName || 'Contestant';
+        return {
+          displayName: publicName,
+          username: publicName,
+          joinedAt: p.joinedAt,
+          isSelf: false
+        };
+      });
+
+      // Build privacy-sanitized submissions list
+      const sanitizedSubmissions = submissions.map(sub => {
+        const subUserLower = (sub.username || '').toLowerCase();
+        const isSelf = !!(requesterUsername && (subUserLower === requesterUsername));
+
+        if (isOrganizer || isSelf) {
+          return { ...sub, isSelf: !!isSelf };
+        }
+
+        const publicName = userMap[sub.username]?.displayName || 'Contestant';
+        return {
+          ...sub,
+          username: publicName,
+          id: `sub_${sub.contestId}_${sub.problemSlug}`,
+          isSelf: false
+        };
+      });
+
       // Hide problems from competitors if contest is still WAITING
       let sanitizedProblems = contest.problems || [];
       if (contest.status === 'WAITING' && !isOrganizer) {
@@ -1516,12 +1588,13 @@ exports.handler = async (event) => {
         success: true,
         contest: {
           ...contest,
+          participants: sanitizedParticipants,
           problems: sanitizedProblems,
           isPrivate: !!contest.password,
           password: isOrganizer ? (contest.password || '') : (contest.password ? '••••••••' : ''),
           isOrganizer: !!isOrganizer,
-          leaderboard,
-          submissions
+          leaderboard: sanitizedLeaderboard,
+          submissions: sanitizedSubmissions
         }
       });
     }

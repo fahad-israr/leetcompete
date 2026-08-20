@@ -474,7 +474,11 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     );
   }
 
-  const userEntry = contest.leaderboard?.find(entry => entry.username?.toLowerCase() === username?.toLowerCase());
+  const userEntry = contest.leaderboard?.find(entry =>
+    entry.isSelf ||
+    (entry.username && username && entry.username.toLowerCase() === username.toLowerCase()) ||
+    (entry.displayName && displayName && entry.displayName.toLowerCase() === displayName.toLowerCase())
+  );
 
   return (
     <div>
