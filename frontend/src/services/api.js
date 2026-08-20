@@ -277,6 +277,38 @@ export const api = {
     return await handleResponse(res);
   },
 
+  async adminVerifyUser(username) {
+    const res = await fetch(`${API_BASE}/api/admin/users/${encodeURIComponent(username)}/verify`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    return await handleResponse(res);
+  },
+
+  async adminDeleteUser(username) {
+    const res = await fetch(`${API_BASE}/api/admin/users/${encodeURIComponent(username)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return await handleResponse(res);
+  },
+
+  async adminDeleteSeason(seasonId) {
+    const res = await fetch(`${API_BASE}/api/admin/seasons/${encodeURIComponent(seasonId)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return await handleResponse(res);
+  },
+
+  async adminDeleteContest(contestId) {
+    const res = await fetch(`${API_BASE}/api/admin/contests/${encodeURIComponent(contestId)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return await handleResponse(res);
+  },
+
   async verifySubmission(id, username, problemSlug) {
     const res = await fetch(`${API_BASE}/api/contests/${id}/verify`, {
       method: 'POST',

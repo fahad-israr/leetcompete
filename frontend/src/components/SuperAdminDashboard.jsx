@@ -15,7 +15,13 @@ import {
   Globe,
   ExternalLink,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Trash2,
+  AlertTriangle,
+  Check,
+  X,
+  UserCheck,
+  Loader2
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -25,6 +31,11 @@ export default function SuperAdminDashboard({ currentUser, onNavigateContest }) 
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('organizers');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Mutation & Modal States
+  const [confirmModal, setConfirmModal] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
   const loadAnalytics = async () => {
     setIsLoading(true);
@@ -52,6 +63,46 @@ export default function SuperAdminDashboard({ currentUser, onNavigateContest }) 
     a.download = `leetcompete_analytics_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleVerifyUser = async (username) => {
+    setIsProcessing(true);
+    setFeedback(null);
+    try {
+      const res = await api.adminVerifyUser(username);
+      setFeedback({ type: 'success', text: res.message || `Organizer @${username} verified successfully.` });
+      await loadAnalytics();
+    } catch (err) {
+      setFeedback({ type: 'error', text: err.message || `Failed to verify @${username}` });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleExecuteDelete = async () => {
+    if (!confirmModal) return;
+    setIsProcessing(true);
+    setFeedback(null);
+
+    const { type, target } = confirmModal;
+    try {
+      if (type === 'user') {
+        const res = await api.adminDeleteUser(target.username);
+        setFeedback({ type: 'success', text: res.message || `Organizer @${target.username} deleted.` });
+      } else if (type === 'season') {
+        const res = await api.adminDeleteSeason(target.id);
+        setFeedback({ type: 'success', text: res.message || `Season "${target.title}" deleted.` });
+      } else if (type === 'contest') {
+        const res = await api.adminDeleteContest(target.id || target.code);
+        setFeedback({ type: 'success', text: res.message || `Contest ${target.code} deleted.` });
+      }
+      setConfirmModal(null);
+      await loadAnalytics();
+    } catch (err) {
+      setFeedback({ type: 'error', text: err.message || 'Delete operation failed.' });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   if (isLoading) {
@@ -119,101 +170,127 @@ export default function SuperAdminDashboard({ currentUser, onNavigateContest }) 
               textTransform: 'uppercase',
               letterSpacing: '0.05em'
             }}>
-              👑 Super Admin
+              Super Admin
             </span>
-            <h1 style={{ fontSize: '1.75rem', fontWeight: '800', letterSpacing: '-0.02em', margin: 0 }}>
-              Platform Analytics & Control Center
-            </h1>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              Connected as <strong style={{ color: 'var(--text-main)' }}>@{currentUser?.username}</strong>
+            </span>
           </div>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
-            Real-time telemetry on registered organizers, email verification states, curricula leagues, active matches, and AC submissions.
-          </p>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <ShieldCheck size={26} color="var(--accent-primary)" />
+            Platform Analytics & Control Center
+          </h1>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px' }}>
           <button onClick={loadAnalytics} className="btn btn-secondary btn-sm" title="Refresh Live Metrics">
             <RefreshCw size={14} /> Refresh
           </button>
-          <button onClick={handleExportJSON} className="btn btn-primary btn-sm" style={{ background: '#f59e0b', borderColor: '#f59e0b', color: '#000', fontWeight: '700' }}>
-            <Download size={14} /> Export JSON
+          <button onClick={handleExportJSON} className="btn btn-primary btn-sm" title="Export Analytics Dump">
+            <Download size={14} /> Export Dump
           </button>
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
+      {/* Global Feedback Banner */}
+      {feedback && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 18px',
+          borderRadius: 'var(--radius-md)',
+          marginBottom: '20px',
+          background: feedback.type === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+          border: `1px solid ${feedback.type === 'success' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+          color: feedback.type === 'success' ? '#10b981' : '#ef4444',
+          fontSize: '0.9rem',
+          fontWeight: '600'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {feedback.type === 'success' ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
+            <span>{feedback.text}</span>
+          </div>
+          <button onClick={() => setFeedback(null)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Metric Cards Grid */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
         gap: '16px',
-        marginBottom: '32px'
+        marginBottom: '28px'
       }}>
-        {/* Card 1 */}
+        {/* Metric 1: Organizers */}
         <div className="glass-panel" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.825rem', color: 'var(--text-muted)', fontWeight: '600' }}>Registered Organizers</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Registered Organizers</span>
             <Users size={18} color="#60a5fa" />
           </div>
-          <div style={{ fontSize: '1.9rem', fontWeight: '800', color: 'var(--text-main)' }}>
+          <div style={{ fontSize: '1.85rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '4px' }}>
             {stats?.totalOrganizers || 0}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-easy)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <CheckCircle2 size={12} /> {stats?.verifiedOrganizers || 0} Email Verified
+          <div style={{ fontSize: '0.8rem', color: 'var(--color-easy)' }}>
+            ✓ {stats?.verifiedOrganizers || 0} Email Verified
           </div>
         </div>
 
-        {/* Card 2 */}
+        {/* Metric 2: Seasons */}
         <div className="glass-panel" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.825rem', color: 'var(--text-muted)', fontWeight: '600' }}>Total Season Leagues</span>
-            <Layers size={18} color="#a855f7" />
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Curriculum Seasons</span>
+            <Layers size={18} color="#a78bfa" />
           </div>
-          <div style={{ fontSize: '1.9rem', fontWeight: '800', color: 'var(--text-main)' }}>
+          <div style={{ fontSize: '1.85rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '4px' }}>
             {stats?.totalSeasons || 0}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '4px' }}>
-            Curricula tracking pools
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+            Active problem bundles
           </div>
         </div>
 
-        {/* Card 3 */}
+        {/* Metric 3: Contests */}
         <div className="glass-panel" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.825rem', color: 'var(--text-muted)', fontWeight: '600' }}>Matches & Contests</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Total Contests</span>
             <Trophy size={18} color="#f59e0b" />
           </div>
-          <div style={{ fontSize: '1.9rem', fontWeight: '800', color: 'var(--text-main)' }}>
+          <div style={{ fontSize: '1.85rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '4px' }}>
             {stats?.totalContests || 0}
           </div>
-          <div style={{ fontSize: '0.75rem', color: '#60a5fa', marginTop: '4px' }}>
-            {stats?.activeContests || 0} Active / Waiting
+          <div style={{ fontSize: '0.8rem', color: '#f59e0b' }}>
+            ⚡ {stats?.activeContests || 0} Active / Waiting
           </div>
         </div>
 
-        {/* Card 4 */}
+        {/* Metric 4: AC Solves */}
         <div className="glass-panel" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.825rem', color: 'var(--text-muted)', fontWeight: '600' }}>AC Solves Verified</span>
-            <Activity size={18} color="var(--color-easy)" />
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Verified AC Solves</span>
+            <Activity size={18} color="#10b981" />
           </div>
-          <div style={{ fontSize: '1.9rem', fontWeight: '800', color: 'var(--text-main)' }}>
+          <div style={{ fontSize: '1.85rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '4px' }}>
             {stats?.totalSubmissions || 0}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
             LeetCode GraphQL verified
           </div>
         </div>
 
-        {/* Card 5 */}
+        {/* Metric 5: Chat Messages */}
         <div className="glass-panel" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.825rem', color: 'var(--text-muted)', fontWeight: '600' }}>Chat Messages</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Lobby Messages</span>
             <MessageSquare size={18} color="#ec4899" />
           </div>
-          <div style={{ fontSize: '1.9rem', fontWeight: '800', color: 'var(--text-main)' }}>
+          <div style={{ fontSize: '1.85rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '4px' }}>
             {stats?.totalMessages || 0}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '4px' }}>
-            Live arena interaction
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+            Live room interactions
           </div>
         </div>
       </div>
@@ -285,60 +362,116 @@ export default function SuperAdminDashboard({ currentUser, onNavigateContest }) 
                   <th>Seasons</th>
                   <th>Contests</th>
                   <th>Joined Date</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredOrganizers.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-dim)' }}>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-dim)' }}>
                       No registered organizers found matching "{searchQuery}".
                     </td>
                   </tr>
                 ) : (
-                  filteredOrganizers.map((org) => (
-                    <tr key={org.username}>
-                      <td>
-                        <div style={{ fontWeight: '600', color: 'var(--text-main)' }}>@{org.username}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{org.displayName}</div>
-                      </td>
-                      <td>
-                        <span style={{ fontFamily: 'var(--font-mono)', color: '#60a5fa', fontWeight: '500' }}>
-                          {org.email}
-                        </span>
-                      </td>
-                      <td>
-                        {org.isVerified ? (
-                          <span className="badge badge-easy" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                            <CheckCircle2 size={11} /> Verified
+                  filteredOrganizers.map((org) => {
+                    const isRootSuper = org.username?.toLowerCase() === 'fahad00cms' || org.email?.toLowerCase() === 'fahad00cms@gmail.com';
+                    return (
+                      <tr key={org.username}>
+                        <td>
+                          <div style={{ fontWeight: '600', color: 'var(--text-main)' }}>@{org.username}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{org.displayName}</div>
+                        </td>
+                        <td>
+                          <span style={{ fontFamily: 'var(--font-mono)', color: '#60a5fa', fontWeight: '500' }}>
+                            {org.email}
                           </span>
-                        ) : (
-                          <span className="badge badge-amber" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                            <Clock size={11} /> Unverified
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        {org.role === 'superadmin' ? (
-                          <span className="badge" style={{ background: '#f59e0b', color: '#000', fontWeight: '700' }}>
-                            👑 Super Admin
-                          </span>
-                        ) : (
-                          <span className="badge" style={{ background: 'var(--bg-input)', color: 'var(--text-muted)' }}>
-                            Organizer
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        <strong>{org.seasonsCount}</strong>
-                      </td>
-                      <td>
-                        <strong>{org.contestsCount}</strong>
-                      </td>
-                      <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                        {org.createdAt ? new Date(org.createdAt * 1000).toLocaleDateString() : '—'}
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td>
+                          {org.isVerified ? (
+                            <span className="badge badge-easy" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                              <CheckCircle2 size={11} /> Verified
+                            </span>
+                          ) : (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              <span className="badge badge-amber" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                <Clock size={11} /> Unverified
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleVerifyUser(org.username)}
+                                disabled={isProcessing}
+                                className="btn btn-sm"
+                                style={{
+                                  background: 'rgba(16, 185, 129, 0.15)',
+                                  color: '#10b981',
+                                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                                  padding: '2px 8px',
+                                  fontSize: '0.75rem',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  cursor: 'pointer'
+                                }}
+                                title="Mark email verified immediately"
+                              >
+                                <UserCheck size={11} /> Verify
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          {org.role === 'superadmin' ? (
+                            <span className="badge" style={{ background: '#f59e0b', color: '#000', fontWeight: '700' }}>
+                              👑 Super Admin
+                            </span>
+                          ) : (
+                            <span className="badge" style={{ background: 'var(--bg-input)', color: 'var(--text-muted)' }}>
+                              Organizer
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <strong>{org.seasonsCount}</strong>
+                        </td>
+                        <td>
+                          <strong>{org.contestsCount}</strong>
+                        </td>
+                        <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                          {org.createdAt ? new Date(org.createdAt * 1000).toLocaleDateString() : '—'}
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          {isRootSuper ? (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>Protected</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmModal({
+                                type: 'user',
+                                target: org,
+                                title: `Permanently Delete @${org.username}`,
+                                message: `Are you sure you want to delete organizer @${org.username}? This will CASCADE and permanently remove the user, their ${org.seasonsCount} seasons, ${org.contestsCount} contests, and all linked submissions from DynamoDB.`
+                              })}
+                              disabled={isProcessing}
+                              className="btn btn-danger btn-sm"
+                              style={{
+                                padding: '3px 8px',
+                                fontSize: '0.75rem',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                background: 'rgba(239, 68, 68, 0.12)',
+                                color: '#ef4444',
+                                border: '1px solid rgba(239, 68, 68, 0.3)'
+                              }}
+                              title="Delete user and all associated data"
+                            >
+                              <Trash2 size={12} /> Delete
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -357,12 +490,13 @@ export default function SuperAdminDashboard({ currentUser, onNavigateContest }) 
                   <th>Problems Used</th>
                   <th>Rounds Played</th>
                   <th>Status</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredSeasons.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-dim)' }}>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-dim)' }}>
                       No seasons found matching "{searchQuery}".
                     </td>
                   </tr>
@@ -393,6 +527,32 @@ export default function SuperAdminDashboard({ currentUser, onNavigateContest }) 
                           {season.status}
                         </span>
                       </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmModal({
+                            type: 'season',
+                            target: season,
+                            title: `Permanently Delete Season "${season.title}"`,
+                            message: `Are you sure you want to delete this season? This will CASCADE and permanently remove the season, all ${season.roundsCount} linked contest rounds, and all associated submissions from DynamoDB.`
+                          })}
+                          disabled={isProcessing}
+                          className="btn btn-danger btn-sm"
+                          style={{
+                            padding: '3px 8px',
+                            fontSize: '0.75rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            color: '#ef4444',
+                            border: '1px solid rgba(239, 68, 68, 0.3)'
+                          }}
+                          title="Delete season and linked contest rounds"
+                        >
+                          <Trash2 size={12} /> Delete
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -414,7 +574,7 @@ export default function SuperAdminDashboard({ currentUser, onNavigateContest }) 
                   <th>Duration</th>
                   <th>Status</th>
                   <th>Participants</th>
-                  <th>Action</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -465,15 +625,41 @@ export default function SuperAdminDashboard({ currentUser, onNavigateContest }) 
                       <td>
                         <strong>{c.participantCount}</strong> players
                       </td>
-                      <td>
-                        <button
-                          type="button"
-                          onClick={() => onNavigateContest && onNavigateContest(c.code)}
-                          className="btn btn-secondary btn-sm"
-                          style={{ padding: '4px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                        >
-                          View <ExternalLink size={12} />
-                        </button>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => onNavigateContest && onNavigateContest(c.code)}
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '3px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                          >
+                            View <ExternalLink size={11} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmModal({
+                              type: 'contest',
+                              target: c,
+                              title: `Permanently Delete Contest "${c.title}" (${c.code})`,
+                              message: `Are you sure you want to delete contest ${c.code}? This will permanently remove the match, all player submissions, and chat history from DynamoDB.`
+                            })}
+                            disabled={isProcessing}
+                            className="btn btn-danger btn-sm"
+                            style={{
+                              padding: '3px 8px',
+                              fontSize: '0.75rem',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              background: 'rgba(239, 68, 68, 0.12)',
+                              color: '#ef4444',
+                              border: '1px solid rgba(239, 68, 68, 0.3)'
+                            }}
+                            title="Delete contest and submissions"
+                          >
+                            <Trash2 size={11} /> Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -530,6 +716,86 @@ export default function SuperAdminDashboard({ currentUser, onNavigateContest }) 
         )}
 
       </div>
+
+      {/* Confirmation & Cascade Impact Modal */}
+      {confirmModal && (
+        <div className="modal-overlay" style={{ zIndex: 9999 }}>
+          <div className="glass-panel" style={{
+            maxWidth: '520px',
+            width: '90%',
+            padding: '28px',
+            borderRadius: 'var(--radius-lg)',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.7)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <div style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '12px',
+                background: 'rgba(239, 68, 68, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ef4444',
+                flexShrink: 0
+              }}>
+                <AlertTriangle size={22} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '2px' }}>
+                  {confirmModal.title}
+                </h3>
+                <span style={{ fontSize: '0.775rem', color: '#ef4444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Permanent DynamoDB Cascade Deletion
+                </span>
+              </div>
+            </div>
+
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: '1.5', marginBottom: '24px' }}>
+              {confirmModal.message}
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setConfirmModal(null)}
+                disabled={isProcessing}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteDelete}
+                disabled={isProcessing}
+                className="btn btn-danger"
+                style={{
+                  background: '#ef4444',
+                  borderColor: '#dc2626',
+                  color: '#fff',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: '700'
+                }}
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 size={15} className="spin-animation" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={15} />
+                    Yes, Hard Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

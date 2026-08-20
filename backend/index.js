@@ -354,6 +354,138 @@ async function resolveContest(codeOrId) {
 }
 
 /**
+ * Cascade Hard-Deletion Engine Helpers
+ */
+async function deleteContestAndCascade(contestId) {
+  if (!contestId) return;
+
+  // 1. Delete all submissions for this contest
+  try {
+    const subRes = await docClient.send(new QueryCommand({
+      TableName: SUBMISSIONS_TABLE,
+      KeyConditionExpression: 'contestId = :cId',
+      ExpressionAttributeValues: { ':cId': contestId }
+    }));
+    for (const sub of (subRes.Items || [])) {
+      await docClient.send(new DeleteCommand({
+        TableName: SUBMISSIONS_TABLE,
+        Key: { contestId: sub.contestId, id: sub.id }
+      })).catch(() => {});
+    }
+  } catch (e) {
+    console.error(`Error deleting submissions for contest ${contestId}:`, e);
+  }
+
+  // 2. Delete all chat messages for this contest
+  try {
+    const msgRes = await docClient.send(new QueryCommand({
+      TableName: MESSAGES_TABLE,
+      KeyConditionExpression: 'contestId = :cId',
+      ExpressionAttributeValues: { ':cId': contestId }
+    }));
+    for (const msg of (msgRes.Items || [])) {
+      await docClient.send(new DeleteCommand({
+        TableName: MESSAGES_TABLE,
+        Key: { contestId: msg.contestId, createdAt: msg.createdAt }
+      })).catch(() => {});
+    }
+  } catch (e) {
+    console.error(`Error deleting messages for contest ${contestId}:`, e);
+  }
+
+  // 3. Delete the contest itself
+  await docClient.send(new DeleteCommand({
+    TableName: CONTESTS_TABLE,
+    Key: { id: contestId }
+  })).catch(() => {});
+}
+
+async function deleteSeasonAndCascade(seasonId) {
+  if (!seasonId) return;
+
+  // 1. Find and delete all contests linked to this season
+  try {
+    const contestsRes = await docClient.send(new ScanCommand({
+      TableName: CONTESTS_TABLE,
+      FilterExpression: 'seasonId = :sId',
+      ExpressionAttributeValues: { ':sId': seasonId }
+    }));
+    for (const c of (contestsRes.Items || [])) {
+      await deleteContestAndCascade(c.id);
+    }
+  } catch (e) {
+    console.error(`Error deleting contests for season ${seasonId}:`, e);
+  }
+
+  // 2. Delete the season itself
+  await docClient.send(new DeleteCommand({
+    TableName: SEASONS_TABLE,
+    Key: { id: seasonId }
+  })).catch(() => {});
+}
+
+async function deleteUserAndCascade(rawUsername) {
+  const username = (rawUsername || '').trim();
+  const uLower = username.toLowerCase();
+
+  // Root Super Admin Protection
+  if (uLower === 'fahad00cms' || uLower === 'fahad00cms@gmail.com') {
+    throw new Error('Root superadmin account cannot be deleted.');
+  }
+
+  // 1. Find and delete all seasons owned by user
+  try {
+    const seasonsRes = await docClient.send(new ScanCommand({
+      TableName: SEASONS_TABLE,
+      FilterExpression: 'ownerUsername = :u OR ownerUsername = :uLower',
+      ExpressionAttributeValues: { ':u': username, ':uLower': uLower }
+    }));
+    for (const s of (seasonsRes.Items || [])) {
+      await deleteSeasonAndCascade(s.id);
+    }
+  } catch (e) {
+    console.error(`Error deleting seasons for user ${username}:`, e);
+  }
+
+  // 2. Find and delete all contests hosted/owned by user
+  try {
+    const contestsRes = await docClient.send(new ScanCommand({
+      TableName: CONTESTS_TABLE,
+      FilterExpression: 'ownerUsername = :u OR ownerUsername = :uLower OR hostUsername = :u OR hostUsername = :uLower',
+      ExpressionAttributeValues: { ':u': username, ':uLower': uLower }
+    }));
+    for (const c of (contestsRes.Items || [])) {
+      await deleteContestAndCascade(c.id);
+    }
+  } catch (e) {
+    console.error(`Error deleting contests for user ${username}:`, e);
+  }
+
+  // 3. Delete any standalone submissions by this user across other contests
+  try {
+    const allSubsRes = await docClient.send(new ScanCommand({
+      TableName: SUBMISSIONS_TABLE,
+      FilterExpression: 'username = :u OR username = :uLower',
+      ExpressionAttributeValues: { ':u': username, ':uLower': uLower }
+    }));
+    for (const sub of (allSubsRes.Items || [])) {
+      await docClient.send(new DeleteCommand({
+        TableName: SUBMISSIONS_TABLE,
+        Key: { contestId: sub.contestId, id: sub.id }
+      })).catch(() => {});
+    }
+  } catch (e) {
+    console.error(`Error deleting submissions for user ${username}:`, e);
+  }
+
+  // 4. Delete user from UsersTable
+  await docClient.send(new DeleteCommand({
+    TableName: USERS_TABLE,
+    Key: { username }
+  }));
+}
+
+/**
  * Main AWS Lambda Request Router
  */
 exports.handler = async (event) => {
@@ -1758,6 +1890,71 @@ exports.handler = async (event) => {
         seasons,
         contests,
         recentSubmissions: allSubmissions.slice(-25).reverse()
+      });
+    }
+
+    // Super Admin: Mark User Verified
+    const verifyUserMatch = path.match(/^\/api\/admin\/users\/([a-zA-Z0-9_-]+)\/verify$/);
+    if (verifyUserMatch && (httpMethod === 'POST' || httpMethod === 'PATCH')) {
+      if (!isSuperAdmin(authUser)) {
+        return jsonResponse(403, { success: false, error: 'Forbidden. Superadmin privileges required.' });
+      }
+      const targetUsername = verifyUserMatch[1];
+      await docClient.send(new UpdateCommand({
+        TableName: USERS_TABLE,
+        Key: { username: targetUsername },
+        UpdateExpression: 'SET isVerified = :v, isEmailVerified = :ev, updatedAt = :now',
+        ExpressionAttributeValues: {
+          ':v': true,
+          ':ev': true,
+          ':now': Math.floor(Date.now() / 1000)
+        }
+      }));
+      return jsonResponse(200, {
+        success: true,
+        message: `Organizer @${targetUsername} has been marked as verified.`
+      });
+    }
+
+    // Super Admin: Hard Delete User & Cascade
+    const deleteUserMatch = path.match(/^\/api\/admin\/users\/([a-zA-Z0-9_-]+)$/);
+    if (deleteUserMatch && httpMethod === 'DELETE') {
+      if (!isSuperAdmin(authUser)) {
+        return jsonResponse(403, { success: false, error: 'Forbidden. Superadmin privileges required.' });
+      }
+      const targetUsername = deleteUserMatch[1];
+      await deleteUserAndCascade(targetUsername);
+      return jsonResponse(200, {
+        success: true,
+        message: `User @${targetUsername} and all associated seasons, contests, and submissions have been permanently deleted.`
+      });
+    }
+
+    // Super Admin: Hard Delete Season & Cascade
+    const deleteSeasonMatch = path.match(/^\/api\/admin\/seasons\/([a-zA-Z0-9_-]+)$/);
+    if (deleteSeasonMatch && httpMethod === 'DELETE') {
+      if (!isSuperAdmin(authUser)) {
+        return jsonResponse(403, { success: false, error: 'Forbidden. Superadmin privileges required.' });
+      }
+      const targetSeasonId = deleteSeasonMatch[1];
+      await deleteSeasonAndCascade(targetSeasonId);
+      return jsonResponse(200, {
+        success: true,
+        message: `Season ${targetSeasonId} and all associated contests have been permanently deleted.`
+      });
+    }
+
+    // Super Admin: Hard Delete Contest & Cascade
+    const deleteContestMatch = path.match(/^\/api\/admin\/contests\/([a-zA-Z0-9_-]+)$/);
+    if (deleteContestMatch && httpMethod === 'DELETE') {
+      if (!isSuperAdmin(authUser)) {
+        return jsonResponse(403, { success: false, error: 'Forbidden. Superadmin privileges required.' });
+      }
+      const targetContestId = deleteContestMatch[1];
+      await deleteContestAndCascade(targetContestId);
+      return jsonResponse(200, {
+        success: true,
+        message: `Contest ${targetContestId} and all associated submissions have been permanently deleted.`
       });
     }
 
