@@ -64,16 +64,15 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     }
   }, [contestCode, currentUser]);
 
-  // Adaptive auto-polling for serverless real-time updates
+  // Adaptive auto-polling for serverless real-time updates (Cost-optimized for AWS Free Tier)
   useEffect(() => {
     if (!contest?.id) return;
+    if (contest.status === 'FINISHED') return; // Stop polling completely once match is finished
 
-    // Fast poll (2s) if waiting for prescheduled start time
-    const now = Math.floor(Date.now() / 1000);
-    const isWaitingScheduled = contest.status === 'WAITING' && contest.scheduledStartTime && now >= (contest.scheduledStartTime - 5);
-    const pollInterval = isWaitingScheduled ? 2000 : 6000;
+    const runPoll = async () => {
+      // If browser tab is hidden/minimized, skip polling to avoid consuming AWS Free Tier invocations
+      if (document.hidden) return;
 
-    const interval = setInterval(async () => {
       try {
         const updated = await api.getContest(contestCode);
         if (updated && updated.id) {
@@ -86,8 +85,14 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
           }
         } catch (e) {}
       } catch (e) {}
-    }, pollInterval);
+    };
 
+    // Fast poll (2s) when right at scheduled start time; otherwise 6s
+    const now = Math.floor(Date.now() / 1000);
+    const isWaitingScheduled = contest.status === 'WAITING' && contest.scheduledStartTime && now >= (contest.scheduledStartTime - 5);
+    const pollInterval = isWaitingScheduled ? 2000 : 6000;
+
+    const interval = setInterval(runPoll, pollInterval);
     return () => clearInterval(interval);
   }, [contest?.id, contest?.status, contest?.scheduledStartTime, contestCode]);
 
