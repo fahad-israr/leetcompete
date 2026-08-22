@@ -1453,16 +1453,17 @@ exports.handler = async (event) => {
       const ownerLower = (contest.ownerUsername || '').toLowerCase();
 
       (contest.participants || []).forEach(p => {
-        const pLower = (p.username || '').toLowerCase();
+        const pLower = (p.username || '').toLowerCase().trim();
+        if (!pLower) return;
         // Skip unjoined host/organizer placeholder with 0 score
         if ((pLower === hostLower || pLower === ownerLower) && p.joinedAt === contest.createdAt) {
           return;
         }
 
-        userMap[p.username] = {
-          rawUsername: p.username,
-          username: p.username,
-          displayName: p.displayName || p.username,
+        userMap[pLower] = {
+          rawUsername: pLower,
+          username: pLower,
+          displayName: (p.displayName || '').trim() || pLower,
           totalScore: 0,
           solvedCount: 0,
           totalPenalty: 0,
@@ -1472,11 +1473,13 @@ exports.handler = async (event) => {
       });
 
       submissions.forEach(sub => {
-        if (!userMap[sub.username]) {
-          userMap[sub.username] = {
-            rawUsername: sub.username,
-            username: sub.username,
-            displayName: sub.username,
+        const subLower = (sub.username || '').toLowerCase().trim();
+        if (!subLower) return;
+        if (!userMap[subLower]) {
+          userMap[subLower] = {
+            rawUsername: subLower,
+            username: subLower,
+            displayName: subLower,
             totalScore: 0,
             solvedCount: 0,
             totalPenalty: 0,
@@ -1484,7 +1487,7 @@ exports.handler = async (event) => {
             problemStatus: {}
           };
         }
-        const u = userMap[sub.username];
+        const u = userMap[subLower];
         if (!u.problemStatus[sub.problemSlug]) {
           u.totalScore += (sub.points || 100);
           u.solvedCount += 1;
@@ -1518,9 +1521,31 @@ exports.handler = async (event) => {
         ''
       ).toLowerCase().trim();
 
+      // Collect all known raw LeetCode usernames in this contest
+      const knownHandles = new Set();
+      (contest.participants || []).forEach(p => {
+        const u = (p.username || p.handle || p.lcUsername || p.rawUsername || '').toLowerCase().trim();
+        if (u) knownHandles.add(u);
+      });
+      submissions.forEach(sub => {
+        const u = (sub.username || sub.rawUsername || '').toLowerCase().trim();
+        if (u) knownHandles.add(u);
+      });
+
+      // Helper: determine if a displayName is just a LeetCode handle (no real custom alias set)
+      function getSafePublicName(displayName, rawUsername, fallbackIndex) {
+        const dn = (displayName || '').trim().toLowerCase();
+        const ru = (rawUsername || '').trim().toLowerCase();
+        // If displayName is empty, matches contestant's LC handle, matches ANY known LC handle, or is generic placeholder
+        if (!dn || dn === ru || dn === 'contestant' || knownHandles.has(dn)) {
+          return `Contestant #${fallbackIndex}`;
+        }
+        return displayName.trim();
+      }
+
       // Build privacy-sanitized leaderboard (hides other contestants' LeetCode handles)
-      const sanitizedLeaderboard = leaderboard.map(entry => {
-        const entryUserLower = (entry.rawUsername || entry.username || '').toLowerCase();
+      const sanitizedLeaderboard = leaderboard.map((entry, idx) => {
+        const entryUserLower = (entry.rawUsername || entry.username || '').toLowerCase().trim();
         const isSelf = !!(requesterUsername && (entryUserLower === requesterUsername));
 
         const cleanSolves = (entry.solves || []).map(s => ({
@@ -1543,8 +1568,8 @@ exports.handler = async (event) => {
           return resEntry;
         }
 
-        // For all other participants, mask LeetCode handle with their public displayName
-        const publicName = entry.displayName || 'Contestant';
+        // For all other participants, mask LeetCode handle with safe public name
+        const publicName = getSafePublicName(entry.displayName, entry.rawUsername, idx + 1);
         const resEntry = {
           ...entry,
           solves: cleanSolves,
@@ -1556,16 +1581,23 @@ exports.handler = async (event) => {
         return resEntry;
       });
 
+      // Build a lookup from rawUsername -> safe public name (for submissions)
+      const usernameToPublicName = {};
+      leaderboard.forEach((entry, idx) => {
+        const raw = (entry.rawUsername || entry.username || '').toLowerCase().trim();
+        usernameToPublicName[raw] = getSafePublicName(entry.displayName, entry.rawUsername, idx + 1);
+      });
+
       // Build privacy-sanitized participants list
-      const sanitizedParticipants = (contest.participants || []).map(p => {
-        const pLower = (p.username || '').toLowerCase();
+      const sanitizedParticipants = (contest.participants || []).map((p, idx) => {
+        const pLower = (p.username || '').toLowerCase().trim();
         const isSelf = !!(requesterUsername && (pLower === requesterUsername));
 
         if (isSelf) {
           return { ...p, isSelf: !!isSelf };
         }
 
-        const publicName = p.displayName || 'Contestant';
+        const publicName = getSafePublicName(p.displayName, p.username, idx + 1);
         return {
           displayName: publicName,
           username: publicName,
@@ -1576,14 +1608,14 @@ exports.handler = async (event) => {
 
       // Build privacy-sanitized submissions list
       const sanitizedSubmissions = submissions.map(sub => {
-        const subUserLower = (sub.username || '').toLowerCase();
+        const subUserLower = (sub.username || '').toLowerCase().trim();
         const isSelf = !!(requesterUsername && (subUserLower === requesterUsername));
 
         if (isSelf) {
           return { ...sub, isSelf: !!isSelf };
         }
 
-        const publicName = userMap[sub.username]?.displayName || 'Contestant';
+        const publicName = usernameToPublicName[subUserLower] || getSafePublicName(userMap[subUserLower]?.displayName, subUserLower, 0);
         return {
           contestId: sub.contestId,
           id: `sub_${sub.contestId}_${sub.problemSlug}`,
@@ -1608,6 +1640,8 @@ exports.handler = async (event) => {
         success: true,
         contest: {
           ...contest,
+          ownerUsername: isOrganizer ? contest.ownerUsername : undefined,
+          hostUsername: isOrganizer ? contest.hostUsername : (contest.hostDisplayName || 'Organizer'),
           participants: sanitizedParticipants,
           problems: sanitizedProblems,
           isPrivate: !!contest.password,
@@ -1640,20 +1674,27 @@ exports.handler = async (event) => {
 
       const cleanUsername = username.trim().toLowerCase();
       const participants = contest.participants || [];
-      if (!participants.some(p => p.username === cleanUsername)) {
+      const cleanDisplayName = (displayName && displayName.trim()) ? displayName.trim().slice(0, 25) : '';
+      const existing = participants.find(p => (p.username || '').toLowerCase() === cleanUsername);
+
+      if (existing) {
+        if (cleanDisplayName) {
+          existing.displayName = cleanDisplayName;
+        }
+      } else {
         participants.push({
           username: cleanUsername,
-          displayName: (displayName || username).trim(),
+          displayName: cleanDisplayName || `Contestant #${participants.length + 1}`,
           joinedAt: Math.floor(Date.now() / 1000)
         });
-
-        await docClient.send(new UpdateCommand({
-          TableName: CONTESTS_TABLE,
-          Key: { id: contest.id },
-          UpdateExpression: 'SET participants = :p',
-          ExpressionAttributeValues: { ':p': participants }
-        }));
       }
+
+      await docClient.send(new UpdateCommand({
+        TableName: CONTESTS_TABLE,
+        Key: { id: contest.id },
+        UpdateExpression: 'SET participants = :p',
+        ExpressionAttributeValues: { ':p': participants }
+      }));
 
       return jsonResponse(200, { success: true, message: 'Joined successfully', contest });
     }

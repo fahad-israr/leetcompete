@@ -87,10 +87,10 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
       } catch (e) {}
     };
 
-    // Fast poll (2s) when right at scheduled start time; otherwise 6s
+    // Fast poll (5s) when right at scheduled start time; otherwise 20s to minimize API calls
     const now = Math.floor(Date.now() / 1000);
     const isWaitingScheduled = contest.status === 'WAITING' && contest.scheduledStartTime && now >= (contest.scheduledStartTime - 5);
-    const pollInterval = isWaitingScheduled ? 2000 : 6000;
+    const pollInterval = isWaitingScheduled ? 5000 : 20000;
 
     const interval = setInterval(runPoll, pollInterval);
     return () => clearInterval(interval);
@@ -139,6 +139,13 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
       }
       setContest(data);
       
+      // Auto-sync stored display alias to contest participants in background
+      const savedAlias = localStorage.getItem('leetcompete_display_name') || currentUser?.displayName || '';
+      const savedLC = localStorage.getItem('leetcompete_lc_handle') || localStorage.getItem('leetcompete_username') || '';
+      if (savedAlias && savedLC && data.id) {
+        api.joinContest(data.id, savedLC, savedAlias).catch(() => {});
+      }
+
       const isCreator = (currentUser && (
         (currentUser.username || '').toLowerCase() === (data.ownerUsername || '').toLowerCase() ||
         (currentUser.username || '').toLowerCase() === (data.hostUsername || '').toLowerCase()
@@ -268,6 +275,10 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     }
     if (!contest?.id) return;
 
+    if (username && displayName) {
+      api.joinContest(contest.id, username, displayName).catch(() => {});
+    }
+
     const res = await api.verifySubmission(contest.id, username, problemSlug);
     if (res.verified) {
       loadContest();
@@ -283,6 +294,8 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
       if (msg) {
         setMessages(prev => [...prev, msg]);
       }
+      // Instant refresh after user activity
+      loadContest();
     } catch (err) {
       console.error('Send message error:', err);
     }
