@@ -1531,7 +1531,7 @@ exports.handler = async (event) => {
           verifiedAt: s.verifiedAt
         }));
 
-        if (isOrganizer || isSelf) {
+        if (isSelf) {
           const resEntry = {
             ...entry,
             solves: cleanSolves,
@@ -1561,7 +1561,7 @@ exports.handler = async (event) => {
         const pLower = (p.username || '').toLowerCase();
         const isSelf = !!(requesterUsername && (pLower === requesterUsername));
 
-        if (isOrganizer || isSelf) {
+        if (isSelf) {
           return { ...p, isSelf: !!isSelf };
         }
 
@@ -1579,7 +1579,7 @@ exports.handler = async (event) => {
         const subUserLower = (sub.username || '').toLowerCase();
         const isSelf = !!(requesterUsername && (subUserLower === requesterUsername));
 
-        if (isOrganizer || isSelf) {
+        if (isSelf) {
           return { ...sub, isSelf: !!isSelf };
         }
 

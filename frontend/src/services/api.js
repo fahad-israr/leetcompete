@@ -28,7 +28,7 @@ function getAuthHeaders() {
   }
 
   if (!headers['x-username']) {
-    const savedLC = localStorage.getItem('contestant_leetcode_username');
+    const savedLC = localStorage.getItem('leetcompete_lc_handle') || localStorage.getItem('leetcompete_username') || localStorage.getItem('contestant_leetcode_username');
     if (savedLC) {
       headers['x-username'] = savedLC.trim();
     }
