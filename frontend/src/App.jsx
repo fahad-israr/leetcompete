@@ -13,19 +13,28 @@ import { api } from './services/api';
 
 // ── Hash-based Router ──
 // Routes: #/ (home), #/seasons, #/admin, #/lobby/CODE, ?lobby=CODE (legacy)
+function normalizeCodeOrId(raw) {
+  if (!raw) return null;
+  const clean = raw.trim();
+  if (clean.length === 5) {
+    return clean.toUpperCase();
+  }
+  return clean.toLowerCase();
+}
+
 function parseRoute() {
   // 1. Support legacy ?lobby=CODE query param
   const params = new URLSearchParams(window.location.search);
   const legacyLobby = params.get('lobby');
   if (legacyLobby) {
-    return { view: 'arena', contestCode: legacyLobby.toUpperCase() };
+    return { view: 'arena', contestCode: normalizeCodeOrId(legacyLobby) };
   }
 
   // 2. Parse hash route
   const hash = window.location.hash || '#/';
   if (hash.startsWith('#/lobby/')) {
-    const code = hash.replace('#/lobby/', '').toUpperCase();
-    return { view: 'arena', contestCode: code || null };
+    const raw = hash.replace('#/lobby/', '');
+    return { view: 'arena', contestCode: normalizeCodeOrId(raw) };
   }
   if (hash.startsWith('#/seasons')) return { view: 'seasons', contestCode: null };
   if (hash.startsWith('#/admin')) return { view: 'admin', contestCode: null };
@@ -41,7 +50,7 @@ function setRoute(view, contestCode) {
   }
 
   if (view === 'arena' && contestCode) {
-    window.location.hash = `#/lobby/${contestCode}`;
+    window.location.hash = `#/lobby/${normalizeCodeOrId(contestCode)}`;
   } else if (view === 'seasons') {
     window.location.hash = '#/seasons';
   } else if (view === 'admin') {
@@ -78,7 +87,7 @@ export default function App() {
     // Migrate legacy ?lobby= to hash route
     const params = new URLSearchParams(window.location.search);
     if (params.get('lobby')) {
-      const code = params.get('lobby').toUpperCase();
+      const code = normalizeCodeOrId(params.get('lobby'));
       const url = new URL(window.location);
       url.searchParams.delete('lobby');
       url.hash = `#/lobby/${code}`;

@@ -324,6 +324,13 @@ async function resolveContest(codeOrId) {
     }));
     contest = getRes.Item || null;
   }
+  if (!contest && clean.toLowerCase().startsWith('contest_')) {
+    const getRes = await docClient.send(new GetCommand({
+      TableName: CONTESTS_TABLE,
+      Key: { id: clean.toLowerCase() }
+    }));
+    contest = getRes.Item || null;
+  }
 
   if (!contest) return null;
 
