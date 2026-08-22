@@ -58,8 +58,9 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
       setIsPasswordUnlocked(true);
     }
 
-    // If user already has alias & LC handle saved in their browser
-    if (savedAlias && savedLC) {
+    // If user has explicitly entered this contest arena in this session
+    const hasJoinedSession = sessionStorage.getItem(`arena_joined_${contestCode}`);
+    if (hasJoinedSession && savedAlias && savedLC) {
       setHasEnteredArena(true);
     }
   }, [contestCode, currentUser]);
@@ -212,6 +213,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
       localStorage.setItem('leetcompete_display_name', cleanAlias);
       localStorage.setItem('leetcompete_lc_handle', cleanLC);
       localStorage.setItem('leetcompete_username', cleanLC);
+      sessionStorage.setItem(`arena_joined_${contestCode}`, 'true');
       if (passwordInput.trim()) {
         sessionStorage.setItem(`contest_pass_${contestCode}`, passwordInput.trim());
       }

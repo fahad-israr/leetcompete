@@ -1521,26 +1521,13 @@ exports.handler = async (event) => {
         ''
       ).toLowerCase().trim();
 
-      // Collect all known raw LeetCode usernames in this contest
-      const knownHandles = new Set();
-      (contest.participants || []).forEach(p => {
-        const u = (p.username || p.handle || p.lcUsername || p.rawUsername || '').toLowerCase().trim();
-        if (u) knownHandles.add(u);
-      });
-      submissions.forEach(sub => {
-        const u = (sub.username || sub.rawUsername || '').toLowerCase().trim();
-        if (u) knownHandles.add(u);
-      });
-
-      // Helper: determine if a displayName is just a LeetCode handle (no real custom alias set)
+      // Helper: return participant's actual display name (fallback to Contestant #N only if completely empty)
       function getSafePublicName(displayName, rawUsername, fallbackIndex) {
-        const dn = (displayName || '').trim().toLowerCase();
-        const ru = (rawUsername || '').trim().toLowerCase();
-        // If displayName is empty, matches contestant's LC handle, matches ANY known LC handle, or is generic placeholder
-        if (!dn || dn === ru || dn === 'contestant' || knownHandles.has(dn)) {
-          return `Contestant #${fallbackIndex}`;
+        const dn = (displayName || '').trim();
+        if (dn) {
+          return dn;
         }
-        return displayName.trim();
+        return `Contestant #${fallbackIndex}`;
       }
 
       // Build privacy-sanitized leaderboard (hides other contestants' LeetCode handles)
