@@ -1090,10 +1090,35 @@ exports.handler = async (event) => {
       const usedSlugs = Object.keys(season.usedProblems || {});
       const remainingPool = (season.pool || []).filter(p => !usedSlugs.includes(p.titleSlug.toLowerCase()));
 
+      // Fetch contest metadata for rounds
+      let rounds = [];
+      if (season.contestIds && season.contestIds.length > 0) {
+        const contestGets = season.contestIds.map(cId => docClient.send(new GetCommand({
+          TableName: CONTESTS_TABLE,
+          Key: { id: cId }
+        })).catch(() => null));
+        const contestResults = await Promise.all(contestGets);
+        rounds = contestResults
+          .map(r => r?.Item)
+          .filter(Boolean)
+          .map(c => ({
+            id: c.id,
+            code: c.code,
+            title: c.title,
+            seasonRound: c.seasonRound,
+            status: c.status,
+            createdAt: c.createdAt,
+            participantCount: c.participants?.length || 0,
+            problemCount: c.problems?.length || 0,
+            durationMinutes: c.durationMinutes
+          }));
+      }
+
       return jsonResponse(200, {
         success: true,
         season: {
           ...season,
+          rounds,
           totalPoolCount: season.pool?.length || 0,
           usedProblemCount: usedSlugs.length,
           remainingProblemCount: remainingPool.length,

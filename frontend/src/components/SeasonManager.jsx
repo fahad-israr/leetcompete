@@ -562,30 +562,55 @@ export default function SeasonManager({
         {/* Tab 2: Rounds */}
         {activeTab === 'rounds' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-            {seasonDetail.contestIds?.length === 0 ? (
+            {((seasonDetail.rounds?.length || seasonDetail.contestIds?.length || 0) === 0) ? (
               <div className="glass-panel" style={{ gridColumn: '1/-1', textAlign: 'center', padding: '60px', color: 'var(--text-dim)' }}>
                 No rounds conducted yet. Click <strong>Launch Next Round</strong> to start Round #1!
               </div>
             ) : (
-              seasonDetail.contestIds?.map((cId, idx) => (
-                <div key={cId} className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span className="badge badge-blue">Round #{idx + 1}</span>
+              (seasonDetail.rounds && seasonDetail.rounds.length > 0
+                ? seasonDetail.rounds
+                : (seasonDetail.contestIds || []).map((cId, idx) => ({ id: cId, code: cId, seasonRound: idx + 1 }))
+              ).map((round, idx) => {
+                const roundNum = round.seasonRound || (idx + 1);
+                const roundCode = round.code || round.id;
+                const statusColor = round.status === 'IN_PROGRESS' ? 'var(--color-easy)' : round.status === 'FINISHED' ? 'var(--text-dim)' : 'var(--accent-primary)';
+                return (
+                  <div key={round.id || idx} className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span className="badge badge-blue">Round #{roundNum}</span>
+                          {round.code && round.code.length === 5 && (
+                            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '700', fontSize: '0.8rem', color: 'var(--accent-primary)', background: 'var(--accent-glow)', padding: '2px 8px', borderRadius: '4px' }}>
+                              {round.code}
+                            </span>
+                          )}
+                        </div>
+                        {round.status && (
+                          <span style={{ fontSize: '0.72rem', fontWeight: '700', color: statusColor, textTransform: 'uppercase' }}>
+                            {round.status.replace('_', ' ')}
+                          </span>
+                        )}
+                      </div>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '6px' }}>
+                        {round.title || `${seasonDetail.title} — Round #${roundNum}`}
+                      </h3>
+                      {round.problemCount !== undefined && round.participantCount !== undefined && (
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginBottom: '14px' }}>
+                          {round.problemCount} Problems • {round.participantCount} Participants
+                        </p>
+                      )}
                     </div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '12px' }}>
-                      {seasonDetail.title} — Round #{idx + 1}
-                    </h3>
+                    <button
+                      onClick={() => onSelectContest(roundCode)}
+                      className="btn btn-primary btn-sm"
+                      style={{ width: '100%' }}
+                    >
+                      Enter Match Lobby ({roundCode}) <ChevronRight size={14} />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => onSelectContest(cId)}
-                    className="btn btn-primary btn-sm"
-                    style={{ width: '100%' }}
-                  >
-                    View Contest Room <ChevronRight size={14} />
-                  </button>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
