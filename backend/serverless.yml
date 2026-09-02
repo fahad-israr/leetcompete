@@ -81,7 +81,9 @@ resources:
         KeySchema:
           - AttributeName: username
             KeyType: HASH
-        BillingMode: PAY_PER_REQUEST
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
 
     RateLimitsTable:
       Type: AWS::DynamoDB::Table
@@ -93,7 +95,9 @@ resources:
         KeySchema:
           - AttributeName: id
             KeyType: HASH
-        BillingMode: PAY_PER_REQUEST
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
 
     SeasonsTable:
       Type: AWS::DynamoDB::Table
@@ -105,7 +109,9 @@ resources:
         KeySchema:
           - AttributeName: id
             KeyType: HASH
-        BillingMode: PAY_PER_REQUEST
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
 
     ContestsTable:
       Type: AWS::DynamoDB::Table
@@ -126,7 +132,12 @@ resources:
                 KeyType: HASH
             Projection:
               ProjectionType: ALL
-        BillingMode: PAY_PER_REQUEST
+            ProvisionedThroughput:
+              ReadCapacityUnits: 2
+              WriteCapacityUnits: 1
+        ProvisionedThroughput:
+          ReadCapacityUnits: 2
+          WriteCapacityUnits: 2
 
     SubmissionsTable:
       Type: AWS::DynamoDB::Table
@@ -142,7 +153,9 @@ resources:
             KeyType: HASH
           - AttributeName: id
             KeyType: RANGE
-        BillingMode: PAY_PER_REQUEST
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
 
     MessagesTable:
       Type: AWS::DynamoDB::Table
@@ -158,4 +171,6 @@ resources:
             KeyType: HASH
           - AttributeName: createdAt
             KeyType: RANGE
-        BillingMode: PAY_PER_REQUEST
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
