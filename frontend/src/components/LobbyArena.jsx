@@ -78,23 +78,31 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
         const updated = await api.getContest(contestCode);
         if (updated && updated.id) {
           setContest(updated);
-        }
-        try {
-          const msgs = await api.getMessages(contest.id);
-          if (Array.isArray(msgs)) {
-            setMessages(msgs);
+          if (Array.isArray(updated.messages)) {
+            setMessages(updated.messages);
           }
-        } catch (e) {}
+        }
       } catch (e) {}
     };
 
-    // Fast poll (5s) when right at scheduled start time; otherwise 20s to minimize API calls
+    // Instant refresh when user switches tab back into focus
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        runPoll();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Fast poll (5s) when right at scheduled start time; otherwise 25s to minimize API calls
     const now = Math.floor(Date.now() / 1000);
     const isWaitingScheduled = contest.status === 'WAITING' && contest.scheduledStartTime && now >= (contest.scheduledStartTime - 5);
-    const pollInterval = isWaitingScheduled ? 5000 : 20000;
+    const pollInterval = isWaitingScheduled ? 5000 : 25000;
 
     const interval = setInterval(runPoll, pollInterval);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [contest?.id, contest?.status, contest?.scheduledStartTime, contestCode]);
 
   // Auto-start prescheduled contests when scheduled start time arrives
@@ -140,10 +148,13 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
       }
       setContest(data);
       
-      // Auto-sync stored display alias to contest participants in background
+      // Auto-sync stored display alias only if not already joined
       const savedAlias = localStorage.getItem('leetcompete_display_name') || currentUser?.displayName || '';
       const savedLC = localStorage.getItem('leetcompete_lc_handle') || localStorage.getItem('leetcompete_username') || '';
-      if (savedAlias && savedLC && data.id) {
+      const alreadyInParticipants = (data.participants || []).some(
+        p => (p.username || '').toLowerCase() === (savedLC || '').toLowerCase() && p.displayName === savedAlias
+      );
+      if (savedAlias && savedLC && data.id && !alreadyInParticipants) {
         api.joinContest(data.id, savedLC, savedAlias).catch(() => {});
       }
 
@@ -156,11 +167,15 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
         setIsPasswordUnlocked(true);
       }
       
-      try {
-        const msgs = await api.getMessages(data.id);
-        setMessages(Array.isArray(msgs) ? msgs : []);
-      } catch (e) {
-        setMessages([]);
+      if (Array.isArray(data.messages)) {
+        setMessages(data.messages);
+      } else {
+        try {
+          const msgs = await api.getMessages(data.id);
+          setMessages(Array.isArray(msgs) ? msgs : []);
+        } catch (e) {
+          setMessages([]);
+        }
       }
     } catch (err) {
       setError(err.message || 'Could not load contest lobby.');

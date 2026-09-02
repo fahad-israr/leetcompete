@@ -1655,6 +1655,14 @@ exports.handler = async (event) => {
         sanitizedProblems = [];
       }
 
+      // Fetch recent lobby messages in the same query (eliminates separate API call)
+      const msgRes = await docClient.send(new QueryCommand({
+        TableName: MESSAGES_TABLE,
+        KeyConditionExpression: 'contestId = :cId',
+        ExpressionAttributeValues: { ':cId': contest.id }
+      })).catch(() => ({ Items: [] }));
+      const recentMessages = msgRes.Items || [];
+
       return jsonResponse(200, {
         success: true,
         contest: {
@@ -1667,7 +1675,8 @@ exports.handler = async (event) => {
           password: isOrganizer ? (contest.password || '') : (contest.password ? '••••••••' : ''),
           isOrganizer: !!isOrganizer,
           leaderboard: sanitizedLeaderboard,
-          submissions: sanitizedSubmissions
+          submissions: sanitizedSubmissions,
+          messages: recentMessages
         }
       });
     }
@@ -1697,8 +1706,11 @@ exports.handler = async (event) => {
       const existing = participants.find(p => (p.username || '').toLowerCase() === cleanUsername);
 
       if (existing) {
-        if (cleanDisplayName) {
+        if (cleanDisplayName && existing.displayName !== cleanDisplayName) {
           existing.displayName = cleanDisplayName;
+        } else {
+          // No change to participant record - skip DynamoDB write completely to save WRUs
+          return jsonResponse(200, { success: true, message: 'Already joined', alreadyJoined: true, contest });
         }
       } else {
         participants.push({
