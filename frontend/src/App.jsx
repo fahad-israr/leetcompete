@@ -15,7 +15,7 @@ import { api } from './services/api';
 // Routes: #/ (home), #/seasons, #/admin, #/lobby/CODE, ?lobby=CODE (legacy)
 function normalizeCodeOrId(raw) {
   if (!raw) return null;
-  const clean = raw.trim();
+  const clean = raw.split('?')[0].trim();
   if (clean.length === 5) {
     return clean.toUpperCase();
   }

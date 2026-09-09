@@ -320,6 +320,20 @@ body {
   border: 1px solid rgba(244, 63, 94, 0.35);
 }
 
+.badge-purple, .badge-virtual {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
+.badge-you {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--color-easy);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
 /* Form Inputs */
 .form-group {
   margin-bottom: 16px;
@@ -428,6 +442,64 @@ body {
 
 .data-table tr:hover td {
   background: var(--bg-card-hover);
+}
+
+/* Highlight user row in green across live and virtual contests */
+.data-table tr.highlight-self td {
+  background: rgba(16, 185, 129, 0.12) !important;
+  border-top: 1px solid rgba(16, 185, 129, 0.35);
+  border-bottom: 1px solid rgba(16, 185, 129, 0.35);
+  position: relative;
+}
+
+.data-table tr.highlight-self:hover td {
+  background: rgba(16, 185, 129, 0.18) !important;
+}
+
+.data-table tr.highlight-self td:first-child {
+  border-left: 3px solid var(--color-easy) !important;
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+
+.data-table tr.highlight-self td:last-child {
+  border-right: 1px solid rgba(16, 185, 129, 0.35);
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
+/* Virtual Contest Banner & Summary */
+.virtual-banner {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(99, 102, 241, 0.08));
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.virtual-banner-glow {
+  position: absolute;
+  top: -30px;
+  right: -30px;
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.25) 0%, rgba(168, 85, 247, 0) 70%);
+  pointer-events: none;
+}
+
+.virtual-stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  color: #c084fc;
+  padding: 5px 12px;
+  border-radius: var(--radius-full, 20px);
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 /* Modal Overlay & Responsive Mobile Scroller */

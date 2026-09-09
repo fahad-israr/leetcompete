@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, HelpCircle, Share2, Play, CheckCircle2, AlertCircle, Check, UserCheck, Layers, ArrowLeft, Lock, KeyRound, ShieldCheck, Edit3, User, Sparkles, Clock, Plus, X, RefreshCw, Calendar, Loader2 } from 'lucide-react';
+import { Trophy, HelpCircle, Share2, Play, CheckCircle2, AlertCircle, Check, UserCheck, Layers, ArrowLeft, Lock, KeyRound, ShieldCheck, Edit3, User, Sparkles, Clock, Plus, X, RefreshCw, Calendar, Loader2, RotateCcw } from 'lucide-react';
 import Countdown from './Countdown';
 import ProblemCard from './ProblemCard';
 import Leaderboard from './Leaderboard';
@@ -7,11 +7,139 @@ import LobbyChat from './LobbyChat';
 import { EyeIcon, EyeOffIcon } from './ProblemPicker';
 import { api } from '../services/api';
 
+// === LOCAL MACHINE CACHE & VIRTUAL CONTEST HELPERS ===
+
+function getStoredVirtualSession(code) {
+  try {
+    const raw = localStorage.getItem(`leetcompete_virtual_${code}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveStoredVirtualSession(code, session) {
+  try {
+    localStorage.setItem(`leetcompete_virtual_${code}`, JSON.stringify(session));
+  } catch (e) {}
+}
+
+function clearStoredVirtualSession(code) {
+  try {
+    localStorage.removeItem(`leetcompete_virtual_${code}`);
+  } catch (e) {}
+}
+
+function formatDuration(totalSeconds) {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const hrs = Math.floor(s / 3600);
+  const mins = Math.floor((s % 3600) / 60);
+  const secs = s % 60;
+  if (hrs > 0) {
+    return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+export function checkLocalPriorParticipation(code, contestData) {
+  if (!contestData) return { participated: false };
+
+  // 1. Direct local storage record on this machine
+  const savedRecord = localStorage.getItem(`contest_participated_${code}`);
+  let directInfo = null;
+  if (savedRecord) {
+    try {
+      directInfo = JSON.parse(savedRecord);
+    } catch (e) {}
+  }
+
+  // 2. User handles stored on this local browser
+  const savedLC = (localStorage.getItem('leetcompete_lc_handle') || localStorage.getItem('leetcompete_username') || '').trim().toLowerCase();
+  const savedAlias = (localStorage.getItem('leetcompete_display_name') || '').trim().toLowerCase();
+  const userJson = localStorage.getItem('leetcompete_user');
+  let authUser = '';
+  let authName = '';
+  if (userJson) {
+    try {
+      const u = JSON.parse(userJson);
+      authUser = (u.username || '').trim().toLowerCase();
+      authName = (u.displayName || '').trim().toLowerCase();
+    } catch (e) {}
+  }
+
+  // 3. Search contest leaderboard for this user's historical live record
+  const lb = contestData.leaderboard || [];
+  const matchedEntry = lb.find((entry, idx) => {
+    const entryUser = (entry.username || '').trim().toLowerCase();
+    const entryDisplay = (entry.displayName || '').trim().toLowerCase();
+    if (entry.isSelf) return true;
+    if (savedLC && entryUser && entryUser === savedLC) return true;
+    if (savedAlias && entryDisplay && (entryDisplay === savedAlias || entryDisplay === `${savedAlias} (virtual)`)) return true;
+    if (authUser && entryUser && entryUser === authUser) return true;
+    if (authName && entryDisplay && entryDisplay === authName) return true;
+    if (directInfo && directInfo.username && entryUser === directInfo.username.toLowerCase()) return true;
+    return false;
+  });
+
+  if (matchedEntry) {
+    const rank = matchedEntry.rank || (lb.indexOf(matchedEntry) + 1);
+    return {
+      participated: true,
+      rank,
+      solvedCount: matchedEntry.solvedCount || 0,
+      totalScore: matchedEntry.totalScore || 0,
+      totalPenalty: matchedEntry.totalPenalty || 0,
+      displayName: matchedEntry.displayName
+    };
+  }
+
+  // 4. Search participants list
+  const parts = contestData.participants || [];
+  const matchedParticipant = parts.find(p => {
+    const pUser = (p.username || '').trim().toLowerCase();
+    const pDisplay = (p.displayName || '').trim().toLowerCase();
+    if (savedLC && pUser && pUser === savedLC) return true;
+    if (savedAlias && pDisplay && pDisplay === savedAlias) return true;
+    if (authUser && pUser && pUser === authUser) return true;
+    if (authName && pDisplay && pDisplay === authName) return true;
+    return false;
+  });
+
+  if (matchedParticipant) {
+    return {
+      participated: true,
+      rank: null,
+      solvedCount: 0,
+      totalScore: 0,
+      totalPenalty: 0,
+      displayName: matchedParticipant.displayName
+    };
+  }
+
+  if (directInfo) {
+    return {
+      participated: true,
+      rank: directInfo.rank || null,
+      solvedCount: directInfo.solvedCount || 0,
+      totalScore: directInfo.totalScore || 0,
+      totalPenalty: directInfo.totalPenalty || 0,
+      displayName: directInfo.displayName
+    };
+  }
+
+  return { participated: false };
+}
+
 export default function LobbyArena({ contestCode, onBack, currentUser }) {
   const [contest, setContest] = useState(null);
   const [messages, setMessages] = useState([]);
   const [activeTab, setActiveTab] = useState('questions'); // 'questions' | 'ranking'
   
+  // Virtual Contest Mode State (Local Only, Zero Backend Writes)
+  const [isVirtualMode, setIsVirtualMode] = useState(false);
+  const [virtualSession, setVirtualSession] = useState(null);
+  const [virtualSecondsLeft, setVirtualSecondsLeft] = useState(0);
+
   // Contest Alias & Private LeetCode handle state (Max 25 chars for Display Name)
   const [displayName, setDisplayName] = useState('');
   const [displayNameInput, setDisplayNameInput] = useState('');
@@ -58,6 +186,22 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
       setIsPasswordUnlocked(true);
     }
 
+    // Check for existing virtual session
+    const storedVS = getStoredVirtualSession(contestCode);
+    if (storedVS) {
+      const now = Date.now();
+      if (storedVS.status === 'IN_PROGRESS' && now < storedVS.endTime) {
+        setVirtualSession(storedVS);
+        setIsVirtualMode(true);
+      } else if (storedVS.status === 'IN_PROGRESS' && now >= storedVS.endTime) {
+        const finished = { ...storedVS, status: 'FINISHED' };
+        saveStoredVirtualSession(contestCode, finished);
+        setVirtualSession(finished);
+      } else {
+        setVirtualSession(storedVS);
+      }
+    }
+
     // If user has explicitly entered this contest arena in this session
     const hasJoinedSession = sessionStorage.getItem(`arena_joined_${contestCode}`);
     if (hasJoinedSession && savedAlias && savedLC) {
@@ -65,10 +209,36 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     }
   }, [contestCode, currentUser]);
 
+  // Virtual countdown timer effect (runs locally, zero network)
+  useEffect(() => {
+    if (!isVirtualMode || !virtualSession || virtualSession.status !== 'IN_PROGRESS') return;
+
+    const tick = () => {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((virtualSession.endTime - now) / 1000));
+      setVirtualSecondsLeft(remaining);
+
+      if (remaining <= 0) {
+        const finished = {
+          ...virtualSession,
+          status: 'FINISHED',
+          finishedAt: Date.now()
+        };
+        saveStoredVirtualSession(contestCode, finished);
+        setVirtualSession(finished);
+        setActiveTab('ranking');
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [isVirtualMode, virtualSession?.status, virtualSession?.endTime, contestCode]);
+
   // Adaptive auto-polling for serverless real-time updates (Cost-optimized for AWS Free Tier)
   useEffect(() => {
     if (!contest?.id) return;
-    if (contest.status === 'FINISHED') return; // Stop polling completely once match is finished
+    if (contest.status === 'FINISHED' || isVirtualMode) return; // Stop polling completely once match is finished or in virtual mode
 
     const runPoll = async () => {
       // If browser tab is hidden/minimized, skip polling to avoid consuming AWS Free Tier invocations
@@ -103,7 +273,7 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [contest?.id, contest?.status, contest?.scheduledStartTime, contestCode]);
+  }, [contest?.id, contest?.status, contest?.scheduledStartTime, contestCode, isVirtualMode]);
 
   // Auto-start prescheduled contests when scheduled start time arrives
   useEffect(() => {
@@ -148,14 +318,30 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
       }
       setContest(data);
       
-      // Auto-sync stored display alias only if not already joined
+      // Auto-sync stored display alias only if not already joined and match is active
       const savedAlias = localStorage.getItem('leetcompete_display_name') || currentUser?.displayName || '';
       const savedLC = localStorage.getItem('leetcompete_lc_handle') || localStorage.getItem('leetcompete_username') || '';
       const alreadyInParticipants = (data.participants || []).some(
         p => (p.username || '').toLowerCase() === (savedLC || '').toLowerCase() && p.displayName === savedAlias
       );
-      if (savedAlias && savedLC && data.id && !alreadyInParticipants) {
+      if (savedAlias && savedLC && data.id && !alreadyInParticipants && data.status !== 'FINISHED') {
         api.joinContest(data.id, savedLC, savedAlias).catch(() => {});
+      }
+
+      // Check session or URL for virtual intent
+      const hasVirtualIntent = sessionStorage.getItem(`start_virtual_${contestCode}`) === 'true' ||
+        window.location.hash.includes('virtual=1') ||
+        window.location.search.includes('virtual=1');
+      if (hasVirtualIntent) {
+        sessionStorage.removeItem(`start_virtual_${contestCode}`);
+        if (data.status === 'FINISHED') {
+          const stored = getStoredVirtualSession(contestCode);
+          if (!stored || stored.status === 'FINISHED') {
+            setTimeout(() => handleStartVirtualContest(data), 50);
+          } else if (stored.status === 'IN_PROGRESS') {
+            setIsVirtualMode(true);
+          }
+        }
       }
 
       const isCreator = (currentUser && (
@@ -220,15 +406,22 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     const cleanLC = usernameInput.trim().toLowerCase();
 
     try {
-      if (contest?.id) {
+      if (contest?.id && contest.status !== 'FINISHED') {
         await api.joinContest(contest.id, cleanLC, cleanAlias, passwordInput.trim() || undefined);
       }
 
-      // Permanently remember username & handle in user's browser
+      // Permanently remember username & handle in user's browser local machine cache
       localStorage.setItem('leetcompete_display_name', cleanAlias);
       localStorage.setItem('leetcompete_lc_handle', cleanLC);
       localStorage.setItem('leetcompete_username', cleanLC);
       sessionStorage.setItem(`arena_joined_${contestCode}`, 'true');
+      localStorage.setItem(`contest_participated_${contestCode}`, JSON.stringify({
+        participatedAt: Date.now(),
+        contestCode,
+        username: cleanLC,
+        displayName: cleanAlias
+      }));
+
       if (passwordInput.trim()) {
         sessionStorage.setItem(`contest_pass_${contestCode}`, passwordInput.trim());
       }
@@ -267,6 +460,55 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     }
   };
 
+  // === VIRTUAL CONTEST CONTROLS (LOCAL MACHINE ONLY) ===
+  const handleStartVirtualContest = (contestData = null) => {
+    const target = contestData || contest;
+    if (!target) return;
+
+    const duration = target.durationMinutes || 60;
+    const now = Date.now();
+    const newSession = {
+      contestCode,
+      contestId: target.id,
+      contestTitle: target.title,
+      durationMinutes: duration,
+      startedAt: now,
+      endTime: now + (duration * 60 * 1000),
+      status: 'IN_PROGRESS',
+      solves: [],
+      problemStatus: {},
+      totalScore: 0,
+      solvedCount: 0,
+      totalPenalty: 0
+    };
+
+    saveStoredVirtualSession(contestCode, newSession);
+    setVirtualSession(newSession);
+    setIsVirtualMode(true);
+    setActiveTab('questions');
+  };
+
+  const handleFinishVirtualContest = () => {
+    if (!virtualSession) return;
+    if (!window.confirm('Finish virtual contest and view your final local ranking?')) return;
+
+    const updated = {
+      ...virtualSession,
+      status: 'FINISHED',
+      finishedAt: Date.now()
+    };
+    saveStoredVirtualSession(contestCode, updated);
+    setVirtualSession(updated);
+    setActiveTab('ranking');
+  };
+
+  const handleResetVirtualContest = () => {
+    if (!window.confirm('Reset virtual contest progress and timer? You can restart fresh anytime.')) return;
+    clearStoredVirtualSession(contestCode);
+    setVirtualSession(null);
+    setIsVirtualMode(false);
+  };
+
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [extendMinutes, setExtendMinutes] = useState(10);
   const [isExtending, setIsExtending] = useState(false);
@@ -287,6 +529,61 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
   };
 
   const handleVerifyProblem = async (problemSlug) => {
+    // 1. Virtual Contest Mode: 100% client-side, zero backend API calls or stats modification
+    if (isVirtualMode && virtualSession) {
+      const now = Date.now();
+      const elapsedMinutes = Math.max(0, Math.floor((now - virtualSession.startedAt) / 60000));
+      const targetSlug = (problemSlug || '').toLowerCase().trim();
+      const problem = (contest?.problems || []).find(
+        p => (p.titleSlug || p.slug || '').toLowerCase().trim() === targetSlug
+      );
+      const points = problem?.points || (problem?.difficulty === 'Easy' ? 100 : problem?.difficulty === 'Hard' ? 300 : 200);
+
+      const newSolve = {
+        problemSlug,
+        problemTitle: problem?.title || problemSlug,
+        penaltyMinutes: elapsedMinutes,
+        points,
+        verifiedAt: Math.floor(now / 1000)
+      };
+
+      const existingSolves = (virtualSession.solves || []).filter(
+        s => (s.problemSlug || '').toLowerCase().trim() !== targetSlug
+      );
+      const updatedSolves = [...existingSolves, newSolve];
+      const updatedStatus = { ...(virtualSession.problemStatus || {}) };
+      updatedStatus[problemSlug] = {
+        solved: true,
+        penaltyMinutes: elapsedMinutes,
+        points
+      };
+
+      const totalScore = updatedSolves.reduce((acc, s) => acc + (s.points || 0), 0);
+      const solvedCount = updatedSolves.length;
+      const totalPenalty = updatedSolves.reduce((acc, s) => acc + (s.penaltyMinutes || 0), 0);
+
+      const updatedSession = {
+        ...virtualSession,
+        solves: updatedSolves,
+        problemStatus: updatedStatus,
+        totalScore,
+        solvedCount,
+        totalPenalty
+      };
+
+      saveStoredVirtualSession(contestCode, updatedSession);
+      setVirtualSession(updatedSession);
+
+      return {
+        verified: true,
+        submission: {
+          penaltyMinutes: elapsedMinutes,
+          points
+        }
+      };
+    }
+
+    // 2. Live Contest Mode: Normal backend verification
     if (!username) {
       throw new Error('Please set your LeetCode handle in the participant profile bar above!');
     }
@@ -368,8 +665,8 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     (currentUser.username || '').toLowerCase() === (contest?.hostUsername || '').toLowerCase()
   )) || !!contest?.isOrganizer;
 
-  // ENTRY GATE: If not yet joined, or private lobby locked
-  const requiresGate = (!hasEnteredArena && !isOrganizer) || (contest?.isPrivate && !isPasswordUnlocked && !isOrganizer);
+  // ENTRY GATE: If not yet joined (and match not finished), or private lobby locked
+  const requiresGate = (contest.status !== 'FINISHED' && !hasEnteredArena && !isOrganizer) || (contest?.isPrivate && !isPasswordUnlocked && !isOrganizer);
 
   if (requiresGate) {
     return (
@@ -509,6 +806,42 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
     (entry.username && username && entry.username.toLowerCase() === username.toLowerCase()) ||
     (entry.displayName && displayName && entry.displayName.toLowerCase() === displayName.toLowerCase())
   );
+
+  const priorParticipation = checkLocalPriorParticipation(contestCode, contest);
+
+  const getDisplayLeaderboard = () => {
+    const baseLeaderboard = contest?.leaderboard || [];
+    if (!isVirtualMode && (!virtualSession || virtualSession.status !== 'FINISHED')) {
+      return baseLeaderboard;
+    }
+
+    const vSession = virtualSession || {};
+    const virtualEntry = {
+      username: username || displayName || 'Virtual Contestant',
+      displayName: `${displayName || 'You'} (Virtual)`,
+      totalScore: vSession.totalScore || 0,
+      solvedCount: vSession.solvedCount || 0,
+      totalPenalty: vSession.totalPenalty || 0,
+      solves: vSession.solves || [],
+      problemStatus: vSession.problemStatus || {},
+      isVirtual: true,
+      isSelf: true
+    };
+
+    const combined = [...baseLeaderboard, virtualEntry].sort((a, b) => {
+      if (b.solvedCount !== a.solvedCount) return b.solvedCount - a.solvedCount;
+      if (a.totalPenalty !== b.totalPenalty) return a.totalPenalty - b.totalPenalty;
+      return b.totalScore - a.totalScore;
+    }).map((entry, idx) => ({
+      ...entry,
+      rank: idx + 1
+    }));
+
+    return combined;
+  };
+
+  const displayLeaderboard = getDisplayLeaderboard();
+  const virtualRank = displayLeaderboard.find(e => e.isVirtual)?.rank || null;
 
   return (
     <div>
@@ -683,15 +1016,69 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
             </div>
           )}
 
-          <Countdown
-            status={contest.status}
-            startTime={contest.startTime}
-            endTime={contest.endTime}
-            scheduledStartTime={contest.scheduledStartTime}
-            timezone={contest.timezone || 'UTC'}
-            problemsCount={contest.problems?.length || 0}
-            onTimerEnd={handleTimerEnd}
-          />
+          {isVirtualMode && virtualSession && virtualSession.status === 'IN_PROGRESS' ? (
+            <div
+              className="arena-chip"
+              style={{
+                background: 'rgba(168, 85, 247, 0.15)',
+                borderColor: 'rgba(168, 85, 247, 0.45)',
+                color: '#c084fc',
+                fontWeight: '700'
+              }}
+              title="Virtual Practice Timer (Local Machine Only)"
+            >
+              <Clock size={13} color="#c084fc" />
+              <span>Virtual: <strong style={{ fontFamily: 'var(--font-mono)' }}>{formatDuration(virtualSecondsLeft)}</strong></span>
+            </div>
+          ) : (
+            <Countdown
+              status={contest.status}
+              startTime={contest.startTime}
+              endTime={contest.endTime}
+              scheduledStartTime={contest.scheduledStartTime}
+              timezone={contest.timezone || 'UTC'}
+              problemsCount={contest.problems?.length || 0}
+              onTimerEnd={handleTimerEnd}
+            />
+          )}
+
+          {/* Virtual Contest Controls in Top Bar */}
+          {isVirtualMode && virtualSession?.status === 'IN_PROGRESS' && (
+            <div style={{ display: 'inline-flex', gap: '6px' }}>
+              <button
+                onClick={handleFinishVirtualContest}
+                className="btn btn-danger btn-sm"
+                style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                title="End virtual contest now"
+              >
+                Finish Match
+              </button>
+              <button
+                onClick={handleResetVirtualContest}
+                className="btn btn-secondary btn-sm"
+                style={{ padding: '4px 8px', fontSize: '0.78rem' }}
+                title="Reset virtual progress"
+              >
+                <RotateCcw size={12} />
+              </button>
+            </div>
+          )}
+
+          {contest.status === 'FINISHED' && !isVirtualMode && (
+            <button
+              onClick={() => handleStartVirtualContest()}
+              className="btn btn-primary btn-sm"
+              style={{
+                background: 'linear-gradient(135deg, #a855f7, #7c3aed)',
+                borderColor: '#a855f7',
+                padding: '5px 12px',
+                fontSize: '0.8rem',
+                fontWeight: '700'
+              }}
+            >
+              <Sparkles size={13} /> {virtualSession?.status === 'FINISHED' ? 'Restart Virtual' : 'Virtual Contest'}
+            </button>
+          )}
 
           {/* Start Contest (Organizer Only) */}
           {contest.status === 'WAITING' && isOrganizer && (
@@ -980,8 +1367,130 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
                 </div>
               ) : (
                 <div>
+                  {/* Virtual Practice Banner for Past Contests (When not actively running) */}
+                  {contest.status === 'FINISHED' && !isVirtualMode && (
+                    <div className="virtual-banner">
+                      <div className="virtual-banner-glow" />
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', position: 'relative', zIndex: 1 }}>
+                        <div>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                            <span className="badge badge-purple" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <Sparkles size={11} /> Virtual Practice
+                            </span>
+                            {priorParticipation.participated ? (
+                              <span className="badge badge-easy" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <CheckCircle2 size={11} />
+                                {priorParticipation.rank
+                                  ? `Participated Live: Rank #${priorParticipation.rank} (${priorParticipation.solvedCount}/${contest.problems?.length || 0} Solved)`
+                                  : 'Participated in Live Match'}
+                              </span>
+                            ) : (
+                              <span className="badge" style={{ background: 'var(--bg-input)', color: 'var(--text-dim)', border: '1px solid var(--border-color)' }}>
+                                Not Attempted in Live Match
+                              </span>
+                            )}
+                            {virtualSession?.status === 'FINISHED' && (
+                              <span className="badge badge-gold" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <Trophy size={11} />
+                                Virtual Run: Rank #{virtualRank} ({virtualSession.solvedCount}/{contest.problems?.length || 0} Solved)
+                              </span>
+                            )}
+                          </div>
+
+                          <h2 style={{ fontSize: '1.25rem', fontWeight: '800', marginBottom: '6px', color: 'var(--text-main)' }}>
+                            Practice this Contest in Virtual Mode
+                          </h2>
+                          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '580px', lineHeight: 1.45 }}>
+                            Simulate the original timed match locally on your machine. Solves and penalties are calculated client-side with <strong>zero backend API calls</strong>, and your virtual standing is placed into the official rankings!
+                          </p>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                          <button
+                            onClick={() => handleStartVirtualContest()}
+                            className="btn btn-primary"
+                            style={{
+                              background: 'linear-gradient(135deg, #a855f7, #7c3aed)',
+                              borderColor: '#a855f7',
+                              boxShadow: '0 0 16px rgba(168, 85, 247, 0.35)',
+                              fontWeight: '700'
+                            }}
+                          >
+                            <Play size={16} />
+                            {virtualSession?.status === 'FINISHED' ? 'Restart Virtual Contest' : `Start Virtual Contest (${contest.durationMinutes}m)`}
+                          </button>
+
+                          <button
+                            onClick={() => setActiveTab('ranking')}
+                            className="btn btn-secondary"
+                          >
+                            <Trophy size={15} /> View Rankings
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Active Virtual Match Banner */}
+                  {isVirtualMode && virtualSession?.status === 'IN_PROGRESS' && (
+                    <div style={{
+                      background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(99, 102, 241, 0.1))',
+                      border: '1px solid rgba(168, 85, 247, 0.45)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '12px 18px',
+                      marginBottom: '20px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '12px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span className="badge badge-purple" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>
+                          ● Virtual Match In Progress
+                        </span>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '600' }}>
+                          Time Left: <strong style={{ color: '#c084fc', fontFamily: 'var(--font-mono)' }}>{formatDuration(virtualSecondsLeft)}</strong>
+                        </span>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+                          (Local practice • Solves stored offline)
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          onClick={handleFinishVirtualContest}
+                          className="btn btn-danger btn-sm"
+                          style={{ padding: '4px 12px', fontSize: '0.8rem' }}
+                        >
+                          Finish Virtual Match
+                        </button>
+                        <button
+                          onClick={handleResetVirtualContest}
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+                          title="Reset virtual timer and solves"
+                        >
+                          <RotateCcw size={13} /> Reset
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {contest.problems?.map((prob, idx) => {
-                    const userSolve = userEntry?.solves?.find(s => s.problemSlug?.toLowerCase() === prob.titleSlug?.toLowerCase());
+                    const slug = (prob.titleSlug || prob.slug || '').toLowerCase();
+                    const userSolve = (isVirtualMode && virtualSession)
+                      ? (virtualSession.solves || []).find(s => (s.problemSlug || '').toLowerCase() === slug)
+                      : userEntry?.solves?.find(s => s.problemSlug?.toLowerCase() === slug);
+
+                    const solvePenalty = (isVirtualMode && virtualSession)
+                      ? (virtualSession.problemStatus?.[prob.titleSlug] || virtualSession.problemStatus?.[prob.slug])?.penaltyMinutes
+                      : userSolve?.penaltyMinutes;
+
+                    const cardStatus = isVirtualMode
+                      ? (virtualSession?.status === 'FINISHED' ? 'FINISHED' : 'IN_PROGRESS')
+                      : contest.status;
+
                     return (
                       <ProblemCard
                         key={prob.titleSlug || idx}
@@ -989,8 +1498,8 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
                         problem={prob}
                         disabled={false}
                         userSolved={!!userSolve}
-                        solvePenalty={userSolve?.penaltyMinutes}
-                        contestStatus={contest.status}
+                        solvePenalty={solvePenalty}
+                        contestStatus={cardStatus}
                         onVerify={handleVerifyProblem}
                       />
                     );
@@ -1003,8 +1512,14 @@ export default function LobbyArena({ contestCode, onBack, currentUser }) {
           {/* Ranking Tab */}
           {activeTab === 'ranking' && (
             <Leaderboard
-              leaderboard={contest.leaderboard || []}
+              leaderboard={displayLeaderboard}
               problems={contest.problems || []}
+              currentUsername={username}
+              currentDisplayName={displayName}
+              currentUser={currentUser}
+              isVirtual={isVirtualMode || !!virtualSession}
+              virtualRank={virtualRank}
+              virtualStats={virtualSession}
             />
           )}
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Flame, Trophy, Plus, Compass, Sparkles, Users, Clock, ArrowRight, ShieldCheck, Layers, Lock, Globe, Code2, Calendar } from 'lucide-react';
+import { Flame, Trophy, Plus, Compass, Sparkles, Users, Clock, ArrowRight, ShieldCheck, Layers, Lock, Globe, Code2, Calendar, CheckCircle2 } from 'lucide-react';
 import { api } from '../services/api';
+import { checkLocalPriorParticipation } from './LobbyArena';
 
 export default function Home({
   onSelectContest,
@@ -11,7 +12,7 @@ export default function Home({
   const [contests, setContests] = useState([]);
   const [seasons, setSeasons] = useState([]);
   const [joinCode, setJoinCode] = useState('');
-  const [filterType, setFilterType] = useState('all'); // 'all' | 'live' | 'scheduled' | 'private'
+  const [filterType, setFilterType] = useState('all'); // 'all' | 'live' | 'scheduled' | 'private' | 'past'
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -42,9 +43,14 @@ export default function Home({
 
   const now = Math.floor(Date.now() / 1000);
   const filteredContests = contests.filter(c => {
-    // Only show active lobbies (WAITING or IN_PROGRESS within time limit)
-    if (c.status === 'FINISHED') return false;
-    if (c.status === 'IN_PROGRESS' && c.endTime && now >= c.endTime) return false;
+    const isFinished = c.status === 'FINISHED' || (c.status === 'IN_PROGRESS' && c.endTime && now >= c.endTime);
+
+    if (filterType === 'past') {
+      return isFinished;
+    }
+
+    // Active lobbies only for other tabs
+    if (isFinished) return false;
     if (filterType === 'live' && c.status !== 'IN_PROGRESS') return false;
     if (filterType === 'scheduled' && (!c.scheduledStartTime || c.status !== 'WAITING')) return false;
     if (filterType === 'private' && !c.isPrivate) return false;
@@ -218,7 +224,7 @@ export default function Home({
                 className={`btn btn-sm ${filterType === 'all' ? 'btn-primary' : 'btn-secondary'}`}
                 style={{ padding: '3px 8px', fontSize: '0.75rem', minHeight: '26px' }}
               >
-                All
+                All Active
               </button>
               <button
                 onClick={() => setFilterType('live')}
@@ -241,6 +247,19 @@ export default function Home({
               >
                 Private
               </button>
+              <button
+                onClick={() => setFilterType('past')}
+                className={`btn btn-sm ${filterType === 'past' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{
+                  padding: '3px 8px',
+                  fontSize: '0.75rem',
+                  minHeight: '26px',
+                  borderColor: filterType === 'past' ? undefined : 'rgba(168, 85, 247, 0.4)',
+                  color: filterType === 'past' ? undefined : '#c084fc'
+                }}
+              >
+                <Sparkles size={11} /> Past / Virtual
+              </button>
             </div>
           </div>
 
@@ -248,73 +267,129 @@ export default function Home({
             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-dim)' }}>Loading contests...</div>
           ) : filteredContests.length === 0 ? (
             <div className="glass-panel" style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-dim)' }}>
-              No contests found. Click <strong>Host Contest</strong> to create or schedule a lobby!
+              {filterType === 'past' ? 'No past contests found in record.' : 'No active lobbies found. Click Host Contest to create or schedule a lobby!'}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {filteredContests.slice(0, 8).map((c) => (
-                <div
-                  key={c.id}
-                  className="card"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '14px 16px',
-                    cursor: 'pointer',
-                    gap: '12px'
-                  }}
-                  onClick={() => onSelectContest(c.code)}
-                >
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '700', fontSize: '0.85rem', color: '#fbbf24' }}>
-                        {c.code}
-                      </span>
-                      <span className={`badge badge-${c.status === 'IN_PROGRESS' ? 'easy' : c.status === 'FINISHED' ? 'hard' : 'medium'}`}>
-                        {c.status}
-                      </span>
-                      {c.scheduledStartTime && c.status === 'WAITING' && (
-                        <span className="badge badge-purple" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.72rem' }}>
-                          <Calendar size={10} /> {new Date(c.scheduledStartTime * 1000).toLocaleDateString([], { month: 'short', day: 'numeric' })}, {new Date(c.scheduledStartTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {filteredContests.slice(0, 10).map((c) => {
+                const isFinished = c.status === 'FINISHED' || (c.status === 'IN_PROGRESS' && c.endTime && now >= c.endTime);
+                const priorRecord = isFinished ? checkLocalPriorParticipation(c.code, c) : null;
+                let virtualRecord = null;
+                if (isFinished) {
+                  try {
+                    const raw = localStorage.getItem(`leetcompete_virtual_${c.code}`);
+                    if (raw) virtualRecord = JSON.parse(raw);
+                  } catch (e) {}
+                }
+
+                return (
+                  <div
+                    key={c.id}
+                    className="card"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '14px 16px',
+                      cursor: 'pointer',
+                      gap: '12px'
+                    }}
+                    onClick={() => onSelectContest(c.code)}
+                  >
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '700', fontSize: '0.85rem', color: '#fbbf24' }}>
+                          {c.code}
                         </span>
-                      )}
-                      {c.isPrivate ? (
-                        <span className="badge badge-lock">
-                          <Lock size={10} /> Private
+                        <span className={`badge badge-${c.status === 'IN_PROGRESS' ? 'easy' : c.status === 'FINISHED' ? 'hard' : 'medium'}`}>
+                          {c.status}
                         </span>
-                      ) : (
-                        <span className="badge badge-gold">
-                          Public
+                        {priorRecord?.participated && (
+                          <span className="badge badge-easy" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.72rem' }}>
+                            <CheckCircle2 size={10} /> Participated {priorRecord.rank ? `(#${priorRecord.rank})` : ''}
+                          </span>
+                        )}
+                        {!priorRecord?.participated && virtualRecord && (
+                          <span className="badge badge-purple" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.72rem' }}>
+                            <Sparkles size={10} /> Virtual Practiced
+                          </span>
+                        )}
+                        {isFinished && !priorRecord?.participated && !virtualRecord && (
+                          <span className="badge" style={{ background: 'var(--bg-input)', color: 'var(--text-dim)', border: '1px solid var(--border-color)', fontSize: '0.7rem' }}>
+                            Not Attempted
+                          </span>
+                        )}
+                        {c.scheduledStartTime && c.status === 'WAITING' && (
+                          <span className="badge badge-purple" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.72rem' }}>
+                            <Calendar size={10} /> {new Date(c.scheduledStartTime * 1000).toLocaleDateString([], { month: 'short', day: 'numeric' })}, {new Date(c.scheduledStartTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                        {c.isPrivate ? (
+                          <span className="badge badge-lock">
+                            <Lock size={10} /> Private
+                          </span>
+                        ) : (
+                          <span className="badge badge-gold">
+                            Public
+                          </span>
+                        )}
+                        {c.seasonTitle && (
+                          <span className="badge badge-orange" style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {c.seasonTitle}
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 style={{ fontSize: '0.975rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {c.title}
+                      </h3>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.775rem', color: 'var(--text-dim)' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <Clock size={12} /> {c.durationMinutes}m
                         </span>
-                      )}
-                      {c.seasonTitle && (
-                        <span className="badge badge-orange" style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {c.seasonTitle}
+                        <span>{c.problemCount || 0} Problems</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <Users size={12} /> {c.participantCount || 0} Joined
                         </span>
-                      )}
+                      </div>
                     </div>
 
-                    <h3 style={{ fontSize: '0.975rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {c.title}
-                    </h3>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.775rem', color: 'var(--text-dim)' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                        <Clock size={12} /> {c.durationMinutes}m
-                      </span>
-                      <span>{c.problemCount || 0} Problems</span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                        <Users size={12} /> {c.participantCount || 0} Joined
-                      </span>
-                    </div>
+                    {isFinished ? (
+                      <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => {
+                            sessionStorage.setItem(`start_virtual_${c.code}`, 'true');
+                            onSelectContest(c.code);
+                          }}
+                          className="btn btn-primary btn-sm"
+                          style={{
+                            background: 'linear-gradient(135deg, #a855f7, #7c3aed)',
+                            borderColor: '#a855f7',
+                            padding: '6px 12px',
+                            fontWeight: '700',
+                            fontSize: '0.78rem'
+                          }}
+                          title="Practice this contest under real timed conditions locally"
+                        >
+                          <Sparkles size={12} /> Virtual
+                        </button>
+                        <button
+                          onClick={() => onSelectContest(c.code)}
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '6px 10px', fontSize: '0.78rem' }}
+                        >
+                          Rankings
+                        </button>
+                      </div>
+                    ) : (
+                      <button className="btn btn-primary btn-sm" style={{ padding: '6px 10px', flexShrink: 0 }}>
+                        Enter <ArrowRight size={13} />
+                      </button>
+                    )}
                   </div>
-
-                  <button className="btn btn-primary btn-sm" style={{ padding: '6px 10px', flexShrink: 0 }}>
-                    Enter <ArrowRight size={13} />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

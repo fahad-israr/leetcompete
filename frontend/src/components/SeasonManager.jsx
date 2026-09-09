@@ -601,13 +601,41 @@ export default function SeasonManager({
                         </p>
                       )}
                     </div>
-                    <button
-                      onClick={() => onSelectContest(roundCode)}
-                      className="btn btn-primary btn-sm"
-                      style={{ width: '100%' }}
-                    >
-                      Enter Match Lobby ({roundCode}) <ChevronRight size={14} />
-                    </button>
+                    {round.status === 'FINISHED' ? (
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          onClick={() => {
+                            sessionStorage.setItem(`start_virtual_${roundCode}`, 'true');
+                            onSelectContest(roundCode);
+                          }}
+                          className="btn btn-primary btn-sm"
+                          style={{
+                            flex: 1,
+                            background: 'linear-gradient(135deg, #a855f7, #7c3aed)',
+                            borderColor: '#a855f7',
+                            fontWeight: '700'
+                          }}
+                          title="Practice this round virtually"
+                        >
+                          Virtual Practice
+                        </button>
+                        <button
+                          onClick={() => onSelectContest(roundCode)}
+                          className="btn btn-secondary btn-sm"
+                          style={{ flex: 1 }}
+                        >
+                          Results
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => onSelectContest(roundCode)}
+                        className="btn btn-primary btn-sm"
+                        style={{ width: '100%' }}
+                      >
+                        Enter Match Lobby ({roundCode}) <ChevronRight size={14} />
+                      </button>
+                    )}
                   </div>
                 );
               })
